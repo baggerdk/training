@@ -2,3 +2,10 @@ _upload/
 .claude/
 desktop.ini
 *.tmp
+node_modules/
+www/
+
+# Android-signering – må aldrig i git
+*.jks
+*.keystore
+android/keystore.properties

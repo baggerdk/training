@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">power-krop</string>
+    <string name="title_activity_main">power-krop</string>
+    <string name="package_name">dk.powerdot.powerkrop</string>
+    <string name="custom_url_scheme">dk.powerdot.powerkrop</string>
+</resources>

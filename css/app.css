@@ -19,7 +19,7 @@ h3 { font-size: 1rem; margin: 0; }
 .between { justify-content: space-between; } .mt { margin-top: 12px; } .mt2 { margin-top: 20px; } .mb { margin-bottom: 12px; }
 .center { text-align: center; } .hidden { display: none !important; }
 
-#app { max-width: 720px; margin: 0 auto; padding: 16px 16px calc(var(--nav) + 90px + var(--safe-b)); min-height: 100vh; }
+#app { max-width: 720px; margin: 0 auto; padding: calc(16px + env(safe-area-inset-top, 0px)) 16px calc(var(--nav) + 90px + var(--safe-b)); min-height: 100vh; }
 .top { display: flex; align-items: center; gap: 10px; margin: 4px 0 14px; }
 .top .back { width: 40px; height: 40px; border-radius: 12px; border: 0; background: var(--card); font-size: 1.2rem; }
 

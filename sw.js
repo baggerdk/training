@@ -1,8 +1,8 @@
 // Service worker: gør appen tilgængelig offline. Hæv VERSION ved hver udgivelse.
-const VERSION = 'stalkrop-v1.0.0';
+const VERSION = 'stalkrop-v1.0.1';
 const CORE = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',
-  'js/data.js', 'js/templates.js', 'js/app.js',
+  'js/platform.js', 'js/data.js', 'js/templates.js', 'js/app.js',
   'icons/icon-192.png', 'icons/icon-512.png',
 ];
 const IMAGES = [

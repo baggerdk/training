@@ -68,14 +68,14 @@ function beep(f, d, n) {
     }
   } catch (e) { }
 }
-function buzz(p) { if (S.settings.vibrate && navigator.vibrate) navigator.vibrate(p); }
-let WL = null;
-async function wake() {
-  if (!S.settings.wake || !S.active || !('wakeLock' in navigator)) return;
-  try { WL = await navigator.wakeLock.request('screen'); } catch (e) { }
-}
-function unwake() { try { WL && WL.release(); } catch (e) { } WL = null; }
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && S.active) wake(); });
+function buzz(p) { if (S.settings.vibrate) PLATFORM.vibrate(p); }
+function wake() { if (S.settings.wake && S.active) PLATFORM.keepAwake(true); }
+function unwake() { PLATFORM.keepAwake(false); }
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') { PLATFORM.cancelRestAlarm(); if (S.active) wake(); }
+  // In the background the JS timers stop beeping, so the app hands the end of the rest over to a system notification
+  else if (REST && !REST.fired && REST.end > Date.now()) PLATFORM.scheduleRestAlarm(REST.end, 'Pausen er slut', 'Klar til næste sæt 💪');
+});
 
 // ---------- Beregninger ----------
 function tmFor(lift) { return (S.rm[lift] || 0) * S.settings.tmPct / 100; }
@@ -187,7 +187,7 @@ function startWorkout(pid, week, day) {
     const d = p.days[day];
     S.active = { progId: p.id, week, day, name: d.name, start: Date.now(), items: d.items.map(it => mkActiveItem(it, week, p)) };
   }
-  save(); wake(); go('#/workout');
+  save(); wake(); PLATFORM.ensureChannel(); go('#/workout');
 }
 
 let REST = null;
@@ -799,7 +799,7 @@ VIEWS.settings = () => {
   const st = S.settings, sw = (k, n, d) => `<div class="toggle"><span>${n}${d ? `<div class="xs muted">${d}</div>` : ''}</span><div class="sw ${st[k] ? 'on' : ''}" data-a="setToggle" data-k="${k}"></div></div>`;
   let h = topbar('Mere');
   const standalone = matchMedia('(display-mode: standalone)').matches;
-  if (!standalone) h += `<div class="card hero"><b>Installer som app</b><p class="small muted">Få StålKrop på startskærmen i fuld skærm – virker også offline.</p>
+  if (!standalone && !PLATFORM.native) h += `<div class="card hero"><b>Installer som app</b><p class="small muted">Få StålKrop på startskærmen i fuld skærm – virker også offline.</p>
     ${DEFER ? `<button class="btn pri block" data-a="install">Installer app</button>` : `<p class="small">Chrome: menu <b>⋮</b> → <b>Installer app</b> / <b>Føj til startskærm</b>.<br>Samsung Internet: menu <b>≡</b> → <b>Tilføj side til</b> → <b>Startskærm</b>.</p>`}</div>`;
   h += `<h2>1RM & træningsmax</h2><div class="card"><div class="kpis" style="grid-template-columns:1fr 1fr">${Object.entries(LIFTS).map(([k, n]) => `<label class="f" style="margin:0"><span>${n} (kg)</span><input class="in" inputmode="decimal" data-c="rm" data-k="${k}" value="${S.rm[k] || ''}"></label>`).join('')}</div>
     <label class="f"><span>Træningsmax (% af 1RM)</span><input class="in" inputmode="numeric" data-c="setNum" data-k="tmPct" value="${st.tmPct}"></label>
@@ -1015,9 +1015,9 @@ const A = {
   testSound() { const s = S.settings.sound; S.settings.sound = true; beep(990, .2, 3); S.settings.sound = s; buzz([300, 120, 300]); },
   install() { if (DEFER) { DEFER.prompt(); DEFER.userChoice.finally(() => { DEFER = null; render(); }); } },
   export() {
-    const blob = new Blob([JSON.stringify(Object.assign({}, S, { active: null }), null, 1)], { type: 'application/json' });
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'stalkrop-backup-' + new Date().toISOString().slice(0, 10) + '.json';
-    document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    const name = 'stalkrop-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+    PLATFORM.saveTextFile(name, JSON.stringify(Object.assign({}, S, { active: null }), null, 1), 'application/json')
+      .catch(() => toast('Kunne ikke eksportere backup'));
   },
   reset() { if (confirm('Slet ALLE programmer, logs og indstillinger på denne enhed?') && confirm('Er du helt sikker? Det kan ikke fortrydes.')) { S = defaults(); save(); go('#/'); } },
 };
@@ -1077,6 +1077,11 @@ document.addEventListener('click', e => {
   const fn = A[el.dataset.a];
   if (fn) { e.preventDefault(); fn(el, e); }
 });
+// In the Android app, external links (YouTube etc.) open in the system browser instead of inside the WebView
+document.addEventListener('click', e => {
+  const a = PLATFORM.native && e.target.closest('a[target=_blank]');
+  if (a && /^https?:/.test(a.href)) { e.preventDefault(); PLATFORM.openExternal(a.href); }
+});
 document.addEventListener('change', e => { const el = e.target.closest('[data-c]'); if (el && C[el.dataset.c]) C[el.dataset.c](el); });
 document.addEventListener('input', e => { const el = e.target.closest('[data-in]'); if (el && IN[el.dataset.in]) IN[el.dataset.in](el); });
 // Vælg hele indholdet ved fokus i talfelter – hurtigere at rette på telefonen
@@ -1085,7 +1090,8 @@ document.addEventListener('focusin', e => { if (e.target.matches('.sets input, .
 // Opdatér træningsur hvert minut
 setInterval(() => { if ((ROUTE[0] || '') === 'workout' && !SHEET && !document.activeElement.matches('input,select,textarea')) render(); }, 60000);
 
-if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+// The Android app ships every file in the APK, so it needs no service worker
+if (!PLATFORM.native && 'serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
   navigator.serviceWorker.register('sw.js').catch(() => { });
 }
 if (S.active) wake();
