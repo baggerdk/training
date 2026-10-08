@@ -1,0 +1,25 @@
+# Throwaway Postgres for the API/RLS tests (data in tmpfs, gone when the container stops):
+#   docker compose -f compose.test.yml up -d --wait
+#   cd api && npm test
+name: powerkrop-test
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: powerkrop
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: test-superuser
+      OWNER_PASSWORD: test-owner
+      APP_PASSWORD: test-app
+    ports:
+      - "127.0.0.1:54329:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    volumes:
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d powerkrop"]
+      interval: 2s
+      timeout: 3s
+      retries: 20

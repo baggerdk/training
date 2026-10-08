@@ -1,0 +1,32 @@
+{
+  "name": "power-krop-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "power-krop API: auth, brugere og sync (Fastify + Postgres med RLS)",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "start": "node src/server.ts",
+    "migrate": "node src/migrate.ts",
+    "create-admin": "node src/scripts/create-admin.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@fastify/cors": "11.3.0",
+    "@fastify/rate-limit": "11.2.0",
+    "@node-rs/argon2": "2.2.1",
+    "@sinclair/typebox": "0.34.52",
+    "fastify": "5.12.5",
+    "jose": "6.2.12",
+    "pg": "8.23.1"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "@types/pg": "8.23.1",
+    "typescript": "7.0.2",
+    "vitest": "5.0.2"
+  }
+}

@@ -1,0 +1,42 @@
+# power-krop backend. No ports are published to the host: traffic from outside comes only through
+# Cloudflare Tunnel (cloudflared, added in the Cloudflare phase). For local development use compose.dev.yml:
+#   docker compose -f compose.yml -f compose.dev.yml up --build
+name: powerkrop
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: powerkrop
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Sæt POSTGRES_PASSWORD i server/.env}
+      OWNER_PASSWORD: ${OWNER_PASSWORD:?Sæt OWNER_PASSWORD i server/.env}
+      APP_PASSWORD: ${APP_PASSWORD:?Sæt APP_PASSWORD i server/.env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d powerkrop"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      OWNER_PASSWORD: ${OWNER_PASSWORD}
+      APP_PASSWORD: ${APP_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?Sæt JWT_SECRET i server/.env}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://localhost,https://baggerdk.github.io}
+      INVITE_BASE_URL: ${INVITE_BASE_URL:?Sæt INVITE_BASE_URL i server/.env}
+
+volumes:
+  pgdata:

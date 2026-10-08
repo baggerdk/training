@@ -2,3 +2,7 @@ _upload/
 .claude/
 desktop.ini
 *.tmp
+
+# Backend-hemmeligheder
+server/.env
+node_modules/
