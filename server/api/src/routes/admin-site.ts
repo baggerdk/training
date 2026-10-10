@@ -7,7 +7,7 @@ import fastifyStatic from '@fastify/static';
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import type { Deps } from '../app.ts';
 
-export const SHARED_JS = ['data.js', 'ids.js', 'templates.js', 'progression.js', 'sync-map.js'];
+export const SHARED_JS = ['data.js', 'ids.js', 'templates.js', 'progression.js', 'sync-map.js', 'guide.js'];
 
 const CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; " +
   "base-uri 'none'; form-action 'none'; frame-ancestors 'none'";

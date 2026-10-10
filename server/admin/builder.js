@@ -92,7 +92,7 @@ function renderGenerator() {
 
 function renderBuilder() {
   const p = BUILD.p, isTpl = BUILD.mode === 'template';
-  const title = isTpl ? 'Skabelon' : (BUILD.programId ? 'Ret program' : 'Nyt program');
+  const title = isTpl ? (BUILD.tpl ? 'Ret skabelon' : 'Ny skabelon') : (BUILD.programId ? 'Ret program' : 'Nyt program');
   let h = `<div class="row between wrap"><div><h1>${title}</h1><div class="muted small">${isTpl ? 'Trænerskabelon' : 'Til ' + esc(BUILD.user ? BUILD.user.display_name : '')}</div></div>
     <div class="row">${!isTpl ? `<button class="btn" data-a="saveAsTemplate">Gem som skabelon</button>` : ''}
     <a class="btn ghost" href="${isTpl ? '#/templates' : '#/user/' + BUILD.userId}">Annullér</a>

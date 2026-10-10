@@ -104,7 +104,7 @@ VIEWS.user = async () => {
       <label class="f"><span>Noter (kun for trænere)</span><textarea class="in" id="ap-notes" placeholder="Skader, udstyr, tidspunkter …">${esc(a.notes || '')}</textarea></label>
       <button class="btn pri" type="submit">Gem profil</button>${athlete ? `<span class="xs dim" style="margin-left:10px">Senest ændret ${dkDate(athlete.updated_at)}</span>` : ''}
     </form></div>
-    <div class="card"><div class="row between"><h3 style="margin:0">Programmer</h3><a class="btn pri sm" href="#/program/new?user=${u.id}">＋ Nyt program</a></div>
+    <div class="card"><div class="row between"><h3 style="margin:0">Programmer</h3><div class="row"><button class="btn sm" data-a="openGuideUser" data-id="${u.id}">Programguide</button><a class="btn pri sm" href="#/program/new?user=${u.id}">＋ Nyt program</a></div></div>
     ${programs.length ? `<table class="list mt">${programs.map(p => `<tr class="tap" data-a="openProgram" data-id="${p.id}" data-user="${u.id}">
       <td><b>${esc(p.name)}</b><div class="xs muted">${p.days_per_week || '?'} dage · ${esc(p.level || '')} · lavet af ${esc(authorName(p.created_by))}</div></td>
       <td class="small muted" style="text-align:right">${dkDate(p.updated_at)}</td></tr>`).join('')}</table>`
@@ -142,7 +142,10 @@ VIEWS.program = async () => {
   const userId = QUERY.get('user'), pid = ROUTE[1];
   const [detail, custom, programs] = await Promise.all([API.get('/users/' + userId), API.get('/templates'), pid !== 'new' ? API.get(`/users/${userId}/programs`) : Promise.resolve([])]);
   Object.assign(BUILD, { mode: 'program', userId, user: detail.profile, athlete: detail.athlete, custom, templateId: null });
-  if (pid === 'new') { BUILD.programId = null; BUILD.p = blankProgram(); BUILD.p.level = detail.athlete ? detail.athlete.level : 0; }
+  if (pid === 'new') {
+    BUILD.programId = null; BUILD.p = blankProgram(); BUILD.p.level = detail.athlete ? detail.athlete.level : 0;
+    if (QUERY.get('guide') && GUIDE_PENDING) { BUILD.p = GUIDE_PENDING.result.program; GUIDE_PENDING = null; }
+  }
   else {
     const row = programs.find(p => p.id === pid);
     if (!row) throw new Error('Programmet findes ikke');
@@ -154,7 +157,16 @@ VIEWS.program = async () => {
 };
 
 VIEWS.template = async () => {
-  const custom = await API.get('/templates'), t = custom.find(x => x.id === ROUTE[1]);
+  const custom = await API.get('/templates');
+  if (ROUTE[1] === 'new') {
+    Object.assign(BUILD, { mode: 'template', templateId: null, programId: null, userId: null, user: null, athlete: null, custom, tpl: null });
+    BUILD.p = QUERY.get('guide') && GUIDE_PENDING ? GUIDE_PENDING.result.program : blankProgram();
+    if (BUILD.p.name === 'Nyt program') BUILD.p.name = 'Ny skabelon';
+    GUIDE_PENDING = null;
+    startGenerator();
+    return renderBuilder();
+  }
+  const t = custom.find(x => x.id === ROUTE[1]);
   if (!t) throw new Error('Skabelonen findes ikke');
   Object.assign(BUILD, { mode: 'template', templateId: t.id, programId: null, userId: null, user: null, athlete: null, custom, tpl: t });
   BUILD.p = Object.assign(clone(t.data), { id: newId(), name: t.name, level: t.level ?? (t.data.level || 0) });
@@ -177,6 +189,7 @@ ACTIONS.saveProgram = async () => {
   const err = validProgram();
   if (err) return toast(err, 4000);
   try {
+    if (BUILD.mode === 'template' && !BUILD.tpl) { ACTIONS.saveAsTemplate(); return; }
     if (BUILD.mode === 'template') {
       const t = BUILD.tpl, data = Object.assign(clone(BUILD.p), { id: undefined });
       await API.put('/templates/' + t.id, { name: BUILD.p.name, description: BUILD.p.desc || t.description || null, level: BUILD.p.level,
@@ -207,6 +220,7 @@ SUBMITS.createTemplate = async () => {
   try {
     await API.post('/templates', { name, description: $('#tp-desc').value || null, level: BUILD.p.level, days_per_week: Math.min(7, BUILD.p.days.length), tags, data, shared: $('#tp-shared').checked });
     closeModal(); toast('Skabelonen er gemt');
+    if (BUILD.mode === 'template') { go('#/templates'); return; }
     BUILD.custom = await API.get('/templates');
     rerender();   // the new template appears in "Start fra skabelon" right away
   } catch (e) { toast(e.message, 5000); }
@@ -222,7 +236,7 @@ VIEWS.templates = async () => {
     ${t.created_by === me || API.isAdmin() ? `<div class="row mt"><a class="btn sm" href="#/template/${t.id}">Ret</a>
       <button class="btn sm ghost" data-a="toggleShared" data-id="${t.id}">${t.shared ? 'Stop deling' : 'Del med alle trænere'}</button>
       <button class="btn sm ghost danger" data-a="deleteTemplate" data-id="${t.id}" data-name="${esc(t.name)}">Slet</button></div>` : ''}</div>`;
-  return `<h1>Skabeloner</h1><p class="muted">Ud over appens ${TEMPLATES.length} indbyggede skabeloner kan du gemme dine egne programmer som skabeloner og bruge dem til flere brugere.
+  return `<div class="row between wrap"><h1>Skabeloner</h1><div class="row"><button class="btn" data-a="openGuideTemplate">Programguide</button><a class="btn pri" href="#/template/new">＋ Ny skabelon</a></div></div><p class="muted">Ud over appens ${TEMPLATES.length} indbyggede skabeloner kan du gemme dine egne programmer som skabeloner og bruge dem til flere brugere.
     Gem et program som skabelon fra programbyggeren.</p>
     <h2>Indbyggede</h2><div class="grid3">${TEMPLATES.map(t => `<div class="card"><b>${esc(t.name)}</b><p class="small muted">${esc(t.desc)}</p>
       <div class="xs dim">2–6 dage · begynder, øvet og avanceret · ${templateTrees(t.id).length} progressionstræer</div></div>`).join('')}</div>
@@ -239,3 +253,65 @@ ACTIONS.deleteTemplate = async el => {
 };
 
 render();
+
+// ---------------------------------------------------------------- program guide (rule-based, js/guide.js)
+// Opened from a user (the result can update their athlete profile) or from Skabeloner (the result becomes a template)
+let GUIDE_CTX = null;   // { userId, athlete } or { template: true }
+let GUIDE_PENDING = null;   // the built program waiting for the builder to open
+
+function guideForm(a) {
+  return `<form data-submit="runGuide" novalidate><p class="small muted" style="margin-top:0">Svarene omsættes efter faste regler til skabelon, niveau, dage og trin i progressionstræerne. Du kan tilpasse alt bagefter.</p>
+    ${GUIDE.QUESTIONS.map(q => {
+      const v = a[q.id];
+      if (q.type === 'number') return `<label class="f"><span>${esc(q.text)}</span><input class="in" type="number" inputmode="numeric" min="${q.min}" max="${q.max}" data-q="${q.id}" value="${v}"></label>`;
+      if (q.type === 'multi') return `<div class="f"><span class="small muted" style="font-weight:700">${esc(q.text)}</span><div class="chips">${q.options.map(([k, t]) =>
+        `<label class="chip ${v.includes(k) ? 'on' : ''}"><input type="checkbox" data-q="${q.id}" value="${k}" ${v.includes(k) ? 'checked' : ''} hidden>${esc(t)}</label>`).join('')}</div></div>`;
+      return `<label class="f"><span>${esc(q.text)}</span><select class="in" data-q="${q.id}">${q.options.map(([k, t]) => `<option value="${k}" ${String(v) === k ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></label>`;
+    }).join('')}
+    ${GUIDE_CTX.userId ? '<label class="row small"><input type="checkbox" id="g-save-profile" checked> Gem niveau og trin i brugerens atletprofil</label>' : ''}
+    <button class="btn pri mt" type="submit">Lav forslag</button></form>`;
+}
+function readGuideForm() {
+  const a = {};
+  for (const q of GUIDE.QUESTIONS) {
+    const els = [...document.querySelectorAll(`#modal [data-q="${q.id}"]`)];
+    a[q.id] = q.type === 'multi' ? els.filter(e => e.checked).map(e => e.value) : q.type === 'number' ? (num(els[0].value) || 0) : els[0].value;
+  }
+  return a;
+}
+function openGuide(ctx) {
+  GUIDE_CTX = ctx;
+  openModal('Programguide', guideForm(GUIDE.defaults(ctx.athlete)));
+}
+// Chips toggle visually together with their hidden checkbox
+document.addEventListener('change', e => { if (e.target.matches('#modal .chip input')) e.target.parentElement.classList.toggle('on', e.target.checked); });
+
+SUBMITS.runGuide = () => {
+  const answers = readGuideForm(), r = GUIDE.build(answers);
+  const saveProfile = !!(document.getElementById('g-save-profile') || {}).checked;
+  GUIDE_PENDING = { result: r, answers, saveProfile };
+  const tpl = TEMPLATES.find(t => t.id === r.tpl);
+  $('#modal .body').innerHTML = `<h3 style="margin-top:0">Forslag: ${esc(tpl.name)} · ${LEVELS[r.level]} · ${r.days} dage</h3>
+    ${r.warnings.map(w => `<div class="hint err small" style="margin-bottom:8px">${esc(w)}</div>`).join('')}
+    <ul class="small">${r.reasons.map(x => `<li>${esc(x)}</li>`).join('')}${r.adjustments.map(x => `<li><b>${esc(x)}</b></li>`).join('')}</ul>
+    <div class="small muted">${r.program.days.map(d => `<div><b>${esc(d.name)}:</b> ${d.items.map(it => esc(exName(it.ex))).join(', ') || '–'}</div>`).join('')}</div>
+    <div class="row mt2"><button class="btn pri" data-a="useGuide">${GUIDE_CTX.userId ? 'Byg programmet' : 'Byg skabelonen'}</button>
+      <button class="btn ghost" data-a="guideBack">Ret svarene</button></div>`;
+};
+ACTIONS.guideBack = () => { $('#modal .body').innerHTML = guideForm(GUIDE_PENDING.answers); };
+ACTIONS.useGuide = async () => {
+  const { result, saveProfile } = GUIDE_PENDING;
+  if (GUIDE_CTX.userId && saveProfile) {
+    try {
+      const old = GUIDE_CTX.athlete || {};
+      await API.put(`/users/${GUIDE_CTX.userId}/athlete`, { level: result.level, tree_levels: result.trees, goals: old.goals || null, notes: old.notes || null });
+    } catch (e) { toast('Profilen blev ikke gemt: ' + e.message, 5000); }
+  }
+  closeModal();
+  go(GUIDE_CTX.userId ? `#/program/new?user=${GUIDE_CTX.userId}&guide=1` : '#/template/new?guide=1');
+};
+ACTIONS.openGuideUser = async el => {
+  const d = await API.get('/users/' + el.dataset.id);
+  openGuide({ userId: el.dataset.id, athlete: d.athlete });
+};
+ACTIONS.openGuideTemplate = () => openGuide({ template: true });

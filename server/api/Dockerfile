@@ -14,7 +14,7 @@ RUN npm ci --omit=dev && npm cache clean --force
 COPY server/api/src ./src
 COPY server/migrations /app/migrations
 COPY server/admin /app/admin
-COPY js/data.js js/ids.js js/templates.js js/progression.js js/sync-map.js /app/shared/js/
+COPY js/data.js js/ids.js js/templates.js js/progression.js js/sync-map.js js/guide.js /app/shared/js/
 COPY img /app/shared/img
 
 USER node
