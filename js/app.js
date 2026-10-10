@@ -196,10 +196,11 @@ document.addEventListener('visibilitychange', () => {
 });
 
 // ---------- Beregninger ----------
-function tmFor(lift) { return (S.rm[lift] || 0) * S.settings.tmPct / 100; }
-function roundInc(x) { const inc = S.settings.inc || 2.5; return Math.round(x / inc) * inc; }
-function kgFor(lift, pct) { const tm = tmFor(lift); return tm ? roundInc(tm * pct / 100) : null; }
-function e1(kg, r) { return kg > 0 && r > 0 ? (r === 1 ? kg : kg * (1 + r / 30)) : 0; }
+// Calculations live in js/progression.js (pure, tested); these wrappers pass the current state
+function tmFor(lift) { return PROG.tmFor(S, lift); }
+function roundInc(x) { return PROG.roundInc(S, x); }
+function kgFor(lift, pct) { return PROG.kgFor(S, lift, pct); }
+const e1 = PROG.e1;
 
 function tgtText(s, lift) {
   if (s.pct) {
@@ -227,65 +228,9 @@ function itemSummary(it, week, prog) {
   return same ? `${t.length} × ${txt[0]}` : txt.join(', ');
 }
 
-// Sidste præstation for en øvelse
-function lastPerf(exId) {
-  for (let i = S.logs.length - 1; i >= 0; i--) {
-    for (const it of S.logs[i].items) if (it.ex === exId && it.sets && it.sets.length) return it;
-  }
-  return null;
-}
-
-// Automatisk progression (dobbelt progression)
-function suggest(exId, tgts, lift, noAuto) {
-  const ex = exById(exId) || {};
-  const vals = tgts.map(s => ({
-    r: (s.amrap && s.r <= 1) ? '' : (s.r || ''), t: s.t || '',
-    kg: s.pct ? (lift ? (kgFor(lift, s.pct) || '') : '') : (s.kg || '')
-  }));
-  if (!S.settings.auto || noAuto) return { vals, hint: null };
-  const last = lastPerf(exId);
-  if (!last) return { vals, hint: null };
-  const done = last.sets, inc = S.settings.inc || 2.5;
-  const rpeOk = done.every(s => !s.rpe || s.rpe <= 8.5);
-  let hint = null;
-  const tr = treeOf(exId);
-  const next = tr && TREES[tr.key].steps[tr.i + 1];
-  if (ex.type === 'time') {
-    const minT = Math.min(...done.map(s => s.t || 0));
-    const hit = done.every(s => (s.t || 0) >= ((s.tgt && s.tgt.t) || 0));
-    const tMax = tgts[0] && tgts[0].tMax;
-    let nt = minT + (hit && rpeOk ? 2 : 0);
-    if (tMax && nt > tMax) nt = tMax;
-    vals.forEach(v => v.t = nt || v.t);
-    if (tMax && minT >= tMax && rpeOk && next) hint = { up: next, text: `Du holdt ${minT}s på alle sæt – klar til næste trin: ${exName(next)}` };
-    else if (hit) hint = { text: `Sidst: ${minT}s. Forslag: ${nt}s` };
-    return { vals, hint };
-  }
-  const repSets = tgts.filter(s => !s.pct && !s.amrap);
-  if (!repSets.length) return { vals, hint: null };
-  const minR = Math.min(...done.filter(s => !s.tgt || !s.tgt.amrap).map(s => s.r || 0));
-  const maxKg = Math.max(0, ...done.map(s => s.kg || 0));
-  const hit = done.every(s => !s.tgt || s.tgt.amrap || (s.r || 0) >= (s.tgt.r || 0));
-  const t0 = repSets[0];
-  let nr = minR, nkg = maxKg;
-  if (hit && rpeOk && isFinite(minR)) {
-    if (t0.rMax && minR < t0.rMax) { nr = minR + 1; hint = { text: `Sidst ${minR} reps${maxKg ? ' · ' + fmt(maxKg) + ' kg' : ''} → prøv ${nr} reps` }; }
-    else if (ex.w || ex.type === 'weight') {
-      nkg = maxKg + inc; nr = t0.r;
-      hint = { text: `Toppen af rep-intervallet nået → +${fmt(inc)} kg (${fmt(nkg)} kg × ${nr})` };
-      if (next && !maxKg && ex.type !== 'weight') hint = { up: next, text: `Toppen af rep-intervallet nået. Læg vægt på – eller skift til ${exName(next)}`, kg: nkg };
-    } else if (next) { hint = { up: next, text: `Toppen af rep-intervallet nået – klar til næste trin: ${exName(next)}` }; }
-  } else if (isFinite(minR)) {
-    hint = { text: `Sidst ${minR} reps${maxKg ? ' · ' + fmt(maxKg) + ' kg' : ''} – gentag og slå det` };
-  }
-  if (!isFinite(nr) || !nr) nr = t0.r;
-  vals.forEach((v, i) => {
-    const s = tgts[i]; if (s.pct || s.amrap) return;
-    v.r = Math.max(s.r || 0, Math.min(nr, s.rMax || nr)) || nr;
-    if (nkg) v.kg = nkg;
-  });
-  return { vals, hint };
-}
+// Sidste præstation og automatisk progression (dobbelt progression): se js/progression.js
+function lastPerf(exId) { return PROG.lastPerf(S, exId); }
+function suggest(exId, tgts, lift, noAuto) { return PROG.suggest(S, exId, tgts, lift, noAuto); }
 
 // ---------- Træning ----------
 function mkActiveItem(it, week, prog) {
@@ -805,17 +750,7 @@ const TESTS = [
   { k: 'rm_squat', n: '1RM Squat', u: 'kg', lift: 'squat' }, { k: 'rm_bench', n: '1RM Bænkpres', u: 'kg', lift: 'bench' },
   { k: 'rm_deadlift', n: '1RM Dødløft', u: 'kg', lift: 'deadlift' }, { k: 'rm_ohp', n: '1RM Militærpres', u: 'kg', lift: 'ohp' },
 ];
-function bests(logs) {
-  const B = {};
-  for (const L of (logs || S.logs)) for (const it of L.items) for (const s of it.sets || []) {
-    const b = B[it.ex] || (B[it.ex] = { reps: 0, kg: 0, e1: 0, t: 0 });
-    if (!s.kg && s.r > b.reps) b.reps = s.r;
-    if (s.kg > b.kg) b.kg = s.kg;
-    const x = e1(s.kg, s.r); if (x > b.e1) b.e1 = x;
-    if (s.t > b.t) b.t = s.t;
-  }
-  return B;
-}
+function bests(logs) { return PROG.bests(logs || S.logs); }
 const METRICS = { e1: 'e1RM (kg)', kg: 'Max kg', reps: 'Max reps', t: 'Længste hold (s)', vol: 'Volumen (kg)', total: 'Reps i alt' };
 function defaultMetric(e) { return e.type === 'weight' ? 'e1' : e.type === 'time' ? 't' : 'reps'; }
 function metricUnit(m) { return { e1: 'kg', kg: 'kg', reps: 'reps', t: 's', vol: 'kg', total: 'reps' }[m]; }
