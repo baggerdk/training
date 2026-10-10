@@ -12,6 +12,7 @@ export interface Config {
   migrationsDir: string;
   port: number;
   authRateLimit: number;   // attempts per minute per IP on /auth/*
+  android: { packageName: string; certSha256: string[] };   // for /.well-known/assetlinks.json
 }
 
 function required(env: NodeJS.ProcessEnv, name: string): string {
@@ -37,5 +38,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     migrationsDir: env.MIGRATIONS_DIR ?? fileURLToPath(new URL('../../migrations', import.meta.url)),
     port: Number(env.PORT ?? 3000),
     authRateLimit: Number(env.AUTH_RATE_LIMIT ?? 10),
+    android: {
+      packageName: env.ANDROID_PACKAGE ?? 'dk.powerdot.powerkrop',
+      certSha256: (env.ANDROID_CERT_SHA256 ?? '').split(',').map(s => s.trim().toUpperCase()).filter(Boolean),
+    },
   };
 }

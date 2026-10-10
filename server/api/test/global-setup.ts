@@ -9,7 +9,7 @@ export default async function setup() {
   try {
     await client.connect();
   } catch (e) {
-    throw new Error(`Test-databasen svarer ikke på 127.0.0.1:54329. Start den med: docker compose -f compose.test.yml up -d --wait (${(e as Error).message})`);
+    throw new Error(`Test-databasen svarer ikke på 127.0.0.1:15433. Start den med: docker compose -f compose.test.yml up -d --wait (${(e as Error).message})`);
   }
   try {
     await migrate(client, cfg.migrationsDir);

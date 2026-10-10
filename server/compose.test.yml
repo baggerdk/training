@@ -13,7 +13,7 @@ services:
       OWNER_PASSWORD: test-owner
       APP_PASSWORD: test-app
     ports:
-      - "127.0.0.1:54329:5432"
+      - "127.0.0.1:15433:5432"
     tmpfs:
       - /var/lib/postgresql/data
     volumes:

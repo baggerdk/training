@@ -9,6 +9,7 @@ import { authRoutes } from './routes/auth.ts';
 import { healthRoutes } from './routes/health.ts';
 import { syncRoutes } from './routes/sync.ts';
 import { userRoutes } from './routes/users.ts';
+import { wellKnownRoutes } from './routes/wellknown.ts';
 
 declare module 'fastify' {
   interface FastifyRequest { auth: AccessClaims | null }
@@ -65,5 +66,6 @@ export async function buildApp(cfg: Config, db: Db, opts: { logger?: boolean } =
   await app.register(authRoutes, deps);
   await app.register(userRoutes, deps);
   await app.register(syncRoutes, deps);
+  await app.register(wellKnownRoutes, deps);
   return app;
 }

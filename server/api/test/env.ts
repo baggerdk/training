@@ -2,7 +2,7 @@
 import type { Config } from '../src/config.ts';
 import { loadConfig } from '../src/config.ts';
 
-export const TEST_DB = { host: '127.0.0.1', port: 54329, database: 'powerkrop' };
+export const TEST_DB = { host: '127.0.0.1', port: 15433, database: 'powerkrop' };
 export const SUPERUSER = { ...TEST_DB, user: 'postgres', password: 'test-superuser' };
 
 export function testConfig(overrides: Record<string, string> = {}): Config {
