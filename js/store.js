@@ -22,6 +22,8 @@
       close();
       db = new Dexie(name, dexieOptions);
       db.version(1).stores({ programs: 'id', logs: 'id', tests: 'id', customEx: 'id', kv: 'key' });
+      // v2: what the server has acknowledged (sync snapshot, 'table|key' → JSON) and sync metadata (cursor)
+      db.version(2).stores({ synced: 'key', meta: 'key' });
       await db.open();
     }
 
@@ -103,7 +105,20 @@
       return true;
     }
 
-    return { open, close, load, persist, isEmpty, get isOpen() { return !!db; } };
+    // ---- Sync bookkeeping (used by js/sync.js; never part of S)
+    async function getSynced() {
+      return new Map((await db.table('synced').toArray()).map(r => [r.key, r.json]));
+    }
+    async function updateSynced(puts, dels) {
+      await db.transaction('rw', 'synced', async () => {
+        if (puts.length) await db.table('synced').bulkPut(puts.map(([key, json]) => ({ key, json })));
+        if (dels.length) await db.table('synced').bulkDelete(dels);
+      });
+    }
+    async function getMeta(key) { const r = await db.table('meta').get(key); return r ? r.value : null; }
+    async function setMeta(key, value) { await db.table('meta').put({ key, value }); }
+
+    return { open, close, load, persist, isEmpty, getSynced, updateSynced, getMeta, setMeta, get isOpen() { return !!db; } };
   }
 
   return { createStore, ENTITY_TABLES };

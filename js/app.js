@@ -35,6 +35,60 @@ let saveTimer = null, saveChain = Promise.resolve();
 function save() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(flushSave, 150);
+  scheduleSync(3000);
+}
+
+// ---------- Synkronisering ----------
+// Never blocks the UI or training: it runs in the background and the app keeps working offline.
+const SYNC = createSync({
+  store: STORE,
+  api: (path, opts) => AUTH.api(path, opts),
+  getState: () => S,
+  userId: () => (STORE_KEY && STORE_KEY !== 'local' ? STORE_KEY : null),
+  onStateChanged: async info => { await flushSave(); if (info && info.pulled) softRender(); },
+});
+let syncTimer = null;
+function scheduleSync(delay) {
+  if (!STORE_KEY || STORE_KEY === 'local') return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => SYNC.run(), delay || 0);
+}
+// Re-render after pulled changes, unless the user is typing or has a sheet open
+function softRender() {
+  if (SHEET || (document.activeElement && document.activeElement.matches('input,select,textarea'))) return;
+  render();
+}
+let lastRejected = 0;
+SYNC.onStatus(st => {
+  if (st.rejected.length > lastRejected) {
+    toast('En ændring blev afvist af serveren: ' + st.rejected[st.rejected.length - 1].message, 5000);
+    lastRejected = st.rejected.length;
+  }
+  if (st.state === 'ok' && st.pending === 0) forgetSyncedLegacyData();
+  if ((ROUTE[0] || '') === 'settings') softRender();
+});
+PLATFORM.onNetworkChange(online => { if (online) scheduleSync(1000); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') scheduleSync(500); });
+setInterval(() => { if (document.visibilityState === 'visible') scheduleSync(0); }, 5 * 60 * 1000);
+
+// The old localStorage copy is deleted once the data it was moved into is safely on the server
+function forgetSyncedLegacyData() {
+  try {
+    if (localStorage.getItem('powerkrop-legacy-moved') === STORE_KEY && localStorage.getItem(LEGACY_KEY)) {
+      localStorage.removeItem(LEGACY_KEY);
+    }
+  } catch (e) { }
+}
+
+function syncStatusText(st) {
+  const time = st.lastSync ? new Date(st.lastSync).toLocaleTimeString('da-DK', { hour: '2-digit', minute: '2-digit' }) : '';
+  if (st.state === 'syncing') return '🔄 Synkroniserer…';
+  const n = st.pending + (st.pending === 1 ? ' ændring venter og sendes' : ' ændringer venter og sendes');
+  if (st.state === 'offline') return `📴 Offline – ${st.pending ? n : 'prøver igen'}, når du er online`;
+  if (st.state === 'error') return '⚠️ Kunne ikke synkronisere: ' + esc(st.error || 'ukendt fejl');
+  if (st.pending) return `⏳ Venter: ${st.pending} ændring${st.pending === 1 ? '' : 'er'}`;
+  if (st.lastSync) return '✅ Synkroniseret kl. ' + time;
+  return '⏳ Ikke synkroniseret endnu';
 }
 function flushSave() {
   clearTimeout(saveTimer); saveTimer = null;
@@ -62,6 +116,8 @@ async function boot() {
       toast('Kunne ikke indlæse dine data – genstart appen', 5000);
     }
   }
+  SYNC.reset(); lastRejected = 0;
+  scheduleSync(0);
   if (S.active) wake();
   render(true);
 }
@@ -529,7 +585,7 @@ function finishWorkout() {
       }
     }
   }
-  S.active = null; REST = null; save(); unwake();
+  S.active = null; REST = null; save(); unwake(); scheduleSync(500);   // send the workout right away
   const ups = Object.keys(e1s).filter(l => e1s[l] > (S.rm[l] || 0));
   openSheet(() => `<h2 style="margin-top:0">Træning gemt 💪</h2>
     <div class="kpis"><div class="kpi"><b>${Math.round(log.dur / 60000)}</b><span>Minutter</span></div><div class="kpi"><b>${items.reduce((n, it) => n + it.sets.length, 0)}</b><span>Sæt</span></div>
@@ -905,9 +961,12 @@ VIEWS.invite = () => {
 function accountCard() {
   const p = AUTH.profile;
   if (!p) return '';
+  const st = SYNC.status;
   return `<h2>Konto</h2><div class="card"><div class="row"><div class="grow"><b>${esc(p.display_name)}</b>
     <div class="small muted">${esc(p.email)} · ${ROLE_NAMES[p.role] || esc(p.role)}</div></div></div>
-    <button class="btn ghost block mt" data-a="logout">Log ud</button></div>`;
+    <div class="sync-line small mt">${syncStatusText(st)}</div>
+    <div class="row mt"><button class="btn grow" data-a="syncNow" ${st.state === 'syncing' ? 'disabled' : ''}>Synkronisér nu</button>
+    <button class="btn ghost grow" data-a="logout">Log ud</button></div></div>`;
 }
 
 VIEWS.settings = () => {
@@ -922,7 +981,7 @@ VIEWS.settings = () => {
   h += `<h2>Træning</h2><div class="card">${sw('auto', 'Automatisk progression', 'Forslag til reps/vægt ud fra seneste træning')}${sw('sound', 'Lyd ved timer')}${sw('vibrate', 'Vibration ved timer')}${sw('wake', 'Hold skærmen tændt under træning')}
     <label class="f"><span>Standardpause for nye øvelser (sek)</span><input class="in" inputmode="numeric" data-c="setNum" data-k="rest" value="${st.rest}"></label>
     <button class="btn sm" data-a="testSound">Test lyd & vibration</button></div>`;
-  h += `<h2>Backup</h2><div class="card"><p class="small muted" style="margin-top:0">Dine data ligger kun på denne telefon. Tag en backup jævnligt.</p>
+  h += `<h2>Backup</h2><div class="card"><p class="small muted" style="margin-top:0">${AUTH.loggedIn() ? "Dine data synkroniseres med din konto. En backup-fil er stadig en god ekstra sikkerhed." : "Dine data ligger kun på denne telefon. Tag en backup jævnligt."}</p>
     <div class="row"><button class="btn grow" data-a="export">Eksportér</button><label class="btn grow">Importér<input type="file" accept="application/json,.json" data-c="import" hidden></label></div>
     <button class="btn danger ghost block mt" data-a="reset">Slet alle data</button></div>`;
   h += `<h2>Om</h2><div class="card small muted">StålKrop v1.0 · ${EXERCISES.length} øvelser · ${TEMPLATES.length} skabeloner.<br>Øvelsesbilleder fra <a href="https://github.com/yuhonas/free-exercise-db" target="_blank" rel="noopener">free-exercise-db</a> (public domain). Videoer via YouTube.</div>`;
@@ -1164,9 +1223,15 @@ const A = {
       AUTHFORM = { busy: false, error: e.message }; render(); keep();
     }
   },
+  async syncNow() { await SYNC.run(); render(); },
   async logout() {
-    // Training data is still only on this phone (sync comes later), so logging out does not delete it
-    if (!confirm('Log ud? Dine træningsdata bliver liggende på telefonen.')) return;
+    // Unsynced changes stay in this user's database on the phone and are sent at the next login
+    await flushSave();
+    const n = await SYNC.pending().catch(() => 0);
+    const msg = n
+      ? `Du har ${n} ændring${n === 1 ? '' : 'er'}, der ikke er synkroniseret endnu.\n\nDe bliver liggende på telefonen og sendes, næste gang du logger ind her – men de går tabt, hvis appen afinstalleres eller dens data ryddes.\n\nLog ud alligevel?`
+      : 'Log ud? Dine data er gemt på din konto.';
+    if (!confirm(msg)) return;
     await AUTH.logout(); AUTHFORM = { busy: false, error: '' }; go('#/login');
   },
   reset() { if (confirm('Slet ALLE programmer, logs og indstillinger på denne enhed?') && confirm('Er du helt sikker? Det kan ikke fortrydes.')) { S = defaults(); save(); go('#/'); } },

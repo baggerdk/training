@@ -9,7 +9,7 @@ const PLATFORM = (() => {
   const plug = name => native && core ? core.registerPlugin(name) : null;
   const Haptics = plug('Haptics'), KeepAwake = plug('KeepAwake'), Notif = plug('LocalNotifications');
   const Filesystem = plug('Filesystem'), Share = plug('Share'), Browser = plug('Browser');
-  const SecureStorage = plug('SecureStorage'), App = plug('App');
+  const SecureStorage = plug('SecureStorage'), App = plug('App'), Network = plug('Network');
 
   const REST_NOTIF_ID = 1001;
   let wakeLock = null, channelReady = null;
@@ -101,5 +101,12 @@ const PLATFORM = (() => {
     App.getLaunchUrl().then(r => r && r.url && cb(r.url)).catch(() => { });
   }
 
-  return { native, vibrate, keepAwake, ensureChannel, scheduleRestAlarm, cancelRestAlarm, saveTextFile, openExternal, getSecret, setSecret, removeSecret, onDeepLink };
+  // Network status. navigator.onLine is unreliable in the Android WebView (it stayed true in airplane mode).
+  function onNetworkChange(cb) {
+    if (Network) { Network.addListener('networkStatusChange', s => cb(!!(s && s.connected))); return; }
+    window.addEventListener('online', () => cb(true));
+    window.addEventListener('offline', () => cb(false));
+  }
+
+  return { native, vibrate, keepAwake, ensureChannel, scheduleRestAlarm, cancelRestAlarm, saveTextFile, openExternal, getSecret, setSecret, removeSecret, onDeepLink, onNetworkChange };
 })();

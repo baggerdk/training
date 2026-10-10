@@ -32,12 +32,16 @@ const AUTH = (() => {
     if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
     if (opts.token) headers.Authorization = 'Bearer ' + opts.token;
     let res;
+    // Without a timeout a request can hang for minutes on a dead connection (seen in airplane mode)
+    const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), opts.timeout || 20000);
     try {
       res = await fetch(API_BASE_URL + path, {
         method: opts.method || (opts.body !== undefined ? 'POST' : 'GET'),
-        headers, body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined, cache: 'no-store',
+        headers, body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined, cache: 'no-store', signal: ctrl.signal,
       });
+      clearTimeout(timer);
     } catch (e) {
+      clearTimeout(timer);
       // Also what Cloudflare's rate limiting looks like from here: its 429 has no CORS headers, so fetch just fails
       throw new ApiError(0, 'offline', 'Kunne ikke få kontakt til serveren. Tjek at du er online, vent et øjeblik, og prøv igen.');
     }

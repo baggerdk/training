@@ -161,3 +161,6 @@ body.noauth #app { padding-bottom: calc(32px + var(--safe-b)); }
 .auth .brand h1 { font-size: 1.8rem; margin: 8px 0 2px; }
 .hint.err { margin: 4px 0 12px; background: rgba(255,90,95,.14); color: #ffb3b5; }
 .btn[disabled] { opacity: .6; }
+
+/* Sync-status i kontokortet */
+.sync-line { color: var(--tx2); }
