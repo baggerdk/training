@@ -1,0 +1,5 @@
+# Shell scripts run inside Linux containers and must keep LF line endings on Windows checkouts
+*.sh text eol=lf
+server/**/*.sql text eol=lf
+# Vitest-snapshots sammenlignes tegn for tegn – hold LF på Windows (autocrlf)
+*.snap text eol=lf
