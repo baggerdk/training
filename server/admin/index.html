@@ -1,4 +1,29 @@
 <!doctype html>
-<html lang="da"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>power-krop · Administration</title></head>
-<body><p>Administrationen er under opbygning.</p></body></html>
+<html lang="da">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>power-krop · Administration</title>
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+  <header class="topnav"><div class="in">
+    <a class="brand" href="#/">💪 power-krop <span>Administration</span></a>
+    <nav id="nav"></nav>
+  </div></header>
+  <main id="app"></main>
+  <div id="modal" class="hidden"></div>
+  <div id="toast" class="hidden" role="status"></div>
+  <!-- The app's own exercise library and template engine, so programs are built exactly as in the app -->
+  <script src="shared/ids.js"></script>
+  <script src="shared/data.js"></script>
+  <script src="shared/templates.js"></script>
+  <script src="shared/progression.js"></script>
+  <script src="shared/sync-map.js"></script>
+  <script src="api.js"></script>
+  <script src="ui.js"></script>
+  <script src="builder.js"></script>
+  <script src="views.js"></script>
+</body>
+</html>

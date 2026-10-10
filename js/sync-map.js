@@ -169,5 +169,5 @@
     return applied;
   }
 
-  return { TABLE_ORDER, LEVELS, stableStringify, ensureIds, programToRow, rowToProgram, stateToRows, applyRows, keyOf };
+  return { TABLE_ORDER, stableStringify, ensureIds, programToRow, rowToProgram, stateToRows, applyRows, keyOf };
 });
