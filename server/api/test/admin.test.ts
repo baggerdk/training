@@ -137,3 +137,12 @@ describe('selve hjemmesiden på /admin', () => {
 it('ukendte programmer giver 404', async () => {
   expect((await req('PUT', `/programs/${randomUUID()}`, cast.admin, programBody())).statusCode).toBe(404);
 });
+
+describe('fejlhåndtering', () => {
+  it('ødelagt JSON eller forkert Content-Length giver 400, ikke 500', async () => {
+    const bad = await ctx.app.inject({ method: 'POST', url: '/auth/login', headers: { 'content-type': 'application/json' }, payload: '{"email":' });
+    expect(bad.statusCode).toBe(400);
+    const len = await ctx.app.inject({ method: 'POST', url: '/auth/login', headers: { 'content-type': 'application/json', 'content-length': '999' }, payload: '{"email":"a@b.c","password":"x"}' });
+    expect(len.statusCode).toBeLessThan(500);
+  });
+});

@@ -61,6 +61,10 @@ export async function buildApp(cfg: Config, db: Db, opts: { logger?: boolean } =
     const code = pgCode(err);
     if (code === PG.insufficientPrivilege) return reply.code(403).send({ error: 'forbidden', message: 'Du har ikke rettighed til at gøre dette' });
     if (code === PG.checkViolation) return reply.code(400).send({ error: 'invalid_request', message: 'Ugyldige data' });
+    // Fastify's own client errors (bad JSON, wrong Content-Length, body too large, …) are not server errors
+    if (e.statusCode && e.statusCode >= 400 && e.statusCode < 500) {
+      return reply.code(e.statusCode).send({ error: 'invalid_request', message: e.statusCode === 413 ? 'Forespørgslen er for stor' : 'Ugyldig forespørgsel' });
+    }
     req.log.error(err);
     return reply.code(500).send({ error: 'server_error', message: 'Der opstod en fejl på serveren' });
   });
