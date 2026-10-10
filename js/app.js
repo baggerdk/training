@@ -1,7 +1,6 @@
-// StålKrop – træningsapp (PWA). Alle data gemmes lokalt i localStorage.
+// StålKrop – træningsapp (PWA). Data gemmes lokalt i IndexedDB (js/store.js), én database pr. bruger.
 'use strict';
 
-const KEY = 'stalkrop-v1';
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const num = v => { const n = parseFloat(String(v).replace(',', '.')); return isFinite(n) ? n : 0; };
@@ -13,16 +12,79 @@ const clone = o => JSON.parse(JSON.stringify(o));
 
 function defaults() {
   return {
-    v: 1, programs: [], activeProg: null, logs: [], tests: [], customEx: [], videos: {},
+    v: FORMAT_VERSION, programs: [], activeProg: null, logs: [], tests: [], customEx: [], videos: {},
     rm: { squat: 0, bench: 0, deadlift: 0, ohp: 0 },
     settings: { tmPct: 90, inc: 2.5, rest: 120, sound: true, vibrate: true, wake: true, auto: true },
     active: null
   };
 }
-let S;
-try { S = Object.assign(defaults(), JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { S = defaults(); }
-S.settings = Object.assign(defaults().settings, S.settings);
-function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { toast('Kunne ikke gemme – lageret er fuldt?'); } }
+function withDefaults(s) {
+  const d = defaults(), out = Object.assign(d, s);
+  out.settings = Object.assign(defaults().settings, s && s.settings);
+  out.rm = Object.assign(defaults().rm, s && s.rm);
+  return out;
+}
+
+// ---------- Lagring ----------
+// S is the in-memory working copy. save() writes the changes to IndexedDB shortly after (debounced),
+// and right away when the app is hidden or closed, so a logged set is not lost if Android kills the app.
+let S = defaults();
+const STORE = createStore();
+let STORE_KEY = null;      // the user whose database is open ('local' = no account, the PWA on GitHub Pages)
+let saveTimer = null, saveChain = Promise.resolve();
+function save() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(flushSave, 150);
+}
+function flushSave() {
+  clearTimeout(saveTimer); saveTimer = null;
+  if (!STORE.isOpen) return saveChain;
+  saveChain = STORE.persist(S).catch(e => { console.error('Gem fejlede', e); toast('Kunne ikke gemme – prøv igen'); });
+  return saveChain;
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushSave(); });
+window.addEventListener('pagehide', flushSave);
+
+// Opens the current user's database and loads it into S. Called at start-up and when the user changes.
+async function boot() {
+  const key = AUTH.profile ? AUTH.profile.id : (AUTH.required ? null : 'local');
+  if (key === STORE_KEY && STORE.isOpen) return;
+  if (STORE.isOpen) await flushSave();
+  STORE.close(); STORE_KEY = null; S = defaults();
+  if (key) {
+    try {
+      await STORE.open('powerkrop-' + key);
+      S = withDefaults(await STORE.load(defaults()));
+      STORE_KEY = key;
+      await adoptLegacyData();
+    } catch (e) {
+      console.error('Kunne ikke åbne databasen', e);
+      toast('Kunne ikke indlæse dine data – genstart appen', 5000);
+    }
+  }
+  if (S.active) wake();
+  render(true);
+}
+
+// Data from before login/IndexedDB (localStorage 'stalkrop-v1') is moved once to the first account that wants it.
+// The localStorage copy is left untouched as a safety net until synchronisation is confirmed (phase 8/9).
+async function adoptLegacyData() {
+  const FLAG = 'powerkrop-legacy-moved';
+  let raw = null, moved = null;
+  try { raw = localStorage.getItem(LEGACY_KEY); moved = localStorage.getItem(FLAG); } catch (e) { return; }
+  if (!raw || moved || !(await STORE.isEmpty())) return;
+  let legacy;
+  try { legacy = migrateLegacyState(JSON.parse(raw)); } catch (e) { return; }
+  if (!legacy.programs.length && !legacy.logs.length && !legacy.tests.length) return;
+  const who = AUTH.profile ? ' (' + AUTH.profile.display_name + ')' : '';
+  const ask = STORE_KEY !== 'local';
+  const yes = !ask || confirm(`Der ligger ${legacy.programs.length} programmer og ${legacy.logs.length} træninger på telefonen fra før du loggede ind.\n\nVil du flytte dem til din konto${who}?`);
+  try { localStorage.setItem(FLAG, yes ? STORE_KEY : 'declined'); } catch (e) { }
+  if (!yes) return;
+  S = withDefaults(Object.assign(legacy, { active: legacy.active || null }));
+  await flushSave();
+  toast('Dine data er flyttet til din konto');
+}
 
 // ---------- Fælles UI ----------
 function toast(msg, ms) {
@@ -437,7 +499,7 @@ function finishWorkout() {
   })).filter(it => it.sets.length || (it.result && it.result.done));
   if (!items.length) { if (!confirm('Ingen sæt er markeret som udført. Afslut uden at gemme?')) return; S.active = null; save(); unwake(); go('#/'); return; }
   const prevBest = bests();
-  const log = { id: uid(), date: Date.now(), start: A.start, dur: Date.now() - A.start, progId: A.progId, week: A.week, day: A.day, name: A.name, items };
+  const log = { id: newId(), date: Date.now(), start: A.start, dur: Date.now() - A.start, progId: A.progId, week: A.week, day: A.day, name: A.name, items };
   const prs = [], e1s = {};
   for (const it of items) {
     const b = prevBest[it.ex] || { reps: 0, kg: 0, e1: 0, t: 0 };
@@ -993,7 +1055,7 @@ const A = {
     A.nbDays = el => { n = +el.dataset.v; renderSheet(); };
     A.nbCreate = () => {
       const name = $('#sheet [name=n]').value.trim() || 'Mit program';
-      const p = { id: uid(), name, desc: '', weeks: 4, level: 1, auto: true, pos: { week: 0, day: 0 }, created: Date.now(), days: Array.from({ length: n }, (_, i) => ({ id: uid(), name: 'Dag ' + (i + 1), items: [] })) };
+      const p = { id: newId(), name, desc: '', weeks: 4, level: 1, auto: true, pos: { week: 0, day: 0 }, created: Date.now(), days: Array.from({ length: n }, (_, i) => ({ id: uid(), name: 'Dag ' + (i + 1), items: [] })) };
       S.programs.push(p); if (!S.activeProg) S.activeProg = p.id; save(); closeSheet(); go('#/prog/' + p.id);
     };
     openSheet(() => `<h2 style="margin-top:0">Nyt program</h2><label class="f"><span>Navn</span><input class="in" name="n" placeholder="F.eks. Pull-up specialisering"></label>
@@ -1009,7 +1071,7 @@ const A = {
     const np = buildProgram(p.tpl, n, p.level, p.treeLvls || {});
     p.days = np.days; p.pos = { week: p.pos.week, day: 0 }; save(); render();
   },
-  progDup() { const p = clone(curProg()); p.id = uid(); p.name += ' (kopi)'; p.pos = { week: 0, day: 0 }; S.programs.push(p); save(); go('#/prog/' + p.id); },
+  progDup() { const p = clone(curProg()); p.id = newId(); p.name += ' (kopi)'; p.pos = { week: 0, day: 0 }; S.programs.push(p); save(); go('#/prog/' + p.id); },
   progDel() { const p = curProg(); if (!confirm('Slet “' + p.name + '”? Din træningshistorik bevares.')) return; S.programs = S.programs.filter(x => x !== p); if (S.activeProg === p.id) S.activeProg = S.programs[0] ? S.programs[0].id : null; save(); go('#/programs'); },
   addDay() { const p = curProg(); p.days.push({ id: uid(), name: 'Dag ' + (p.days.length + 1), items: [] }); save(); render(); },
   dayStart(el) { const p = curProg(); if (S.active && !confirm('Der er allerede en træning i gang. Erstat den?')) return; startWorkout(p.id, p.pos.week, +el.dataset.d); },
@@ -1057,7 +1119,7 @@ const A = {
   testSave() {
     const v = num(TEST.v); if (!v) return toast('Indtast et resultat');
     const t = TESTS.find(x => x.k === TEST.k);
-    S.tests.push({ id: uid(), k: t.k, v, date: Date.now() });
+    S.tests.push({ id: newId(), k: t.k, v, date: Date.now() });
     if (t.lift) S.rm[t.lift] = v;
     save(); closeSheet(); toast('Test gemt: ' + t.n + ' ' + fmt(v) + ' ' + t.u); render();
   },
@@ -1068,8 +1130,8 @@ const A = {
   testSound() { const s = S.settings.sound; S.settings.sound = true; beep(990, .2, 3); S.settings.sound = s; buzz([300, 120, 300]); },
   install() { if (DEFER) { DEFER.prompt(); DEFER.userChoice.finally(() => { DEFER = null; render(); }); } },
   export() {
-    const name = 'stalkrop-backup-' + new Date().toISOString().slice(0, 10) + '.json';
-    PLATFORM.saveTextFile(name, JSON.stringify(Object.assign({}, S, { active: null }), null, 1), 'application/json')
+    const name = 'powerkrop-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+    PLATFORM.saveTextFile(name, JSON.stringify(Object.assign({}, S, { v: FORMAT_VERSION, active: null }), null, 1), 'application/json')
       .catch(() => toast('Kunne ikke eksportere backup'));
   },
   // Login
@@ -1143,10 +1205,10 @@ const C = {
     const r = new FileReader();
     r.onload = () => {
       try {
-        const d = JSON.parse(r.result);
-        if (!d || !Array.isArray(d.programs) || !Array.isArray(d.logs)) throw 0;
+        // Reads both old backups (format v1, 8-character ids) and new ones (v2, UUIDs)
+        const d = migrateLegacyState(JSON.parse(r.result));
         if (!confirm(`Importér backup med ${d.programs.length} programmer og ${d.logs.length} træninger? Nuværende data erstattes.`)) return;
-        S = Object.assign(defaults(), d); S.settings = Object.assign(defaults().settings, d.settings); save(); toast('Backup importeret'); go('#/');
+        S = withDefaults(d); flushSave(); toast('Backup importeret'); go('#/');
       } catch (e) { toast('Ugyldig backup-fil'); }
     };
     r.readAsText(f);
@@ -1197,9 +1259,9 @@ PLATFORM.onDeepLink(url => {
   AUTHFORM = { busy: false, error: '' }; go('#/invite/' + encodeURIComponent(token));
 });
 // A session that has been revoked on the server (logged out elsewhere, account disabled) ends here
-AUTH.onChange(p => { if (!p && AUTH.required) render(true); });
+// Login, logout and a session revoked on the server all switch to the right user's database
+AUTH.onChange(() => boot());
 AUTH.verify();
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') AUTH.verify(); });
 
-if (S.active) wake();
-render(true);
+boot();

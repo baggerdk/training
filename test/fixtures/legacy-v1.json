@@ -1,0 +1,1189 @@
+{
+ "v": 1,
+ "programs": [
+  {
+   "id": "a0xxxxxx",
+   "name": "Calisthenics Styrke · Begynder",
+   "tpl": "cal",
+   "level": 0,
+   "treeLvls": {
+    "pull": 2,
+    "dip": 2,
+    "legs": 2,
+    "core": 2,
+    "row": 2,
+    "push": 2,
+    "hspu": 2,
+    "lsit": 2,
+    "muscleup": 2,
+    "planche": 2,
+    "fl": 2,
+    "handstand": 2
+   },
+   "desc": "Klassisk progressiv calisthenics-styrke med dobbelt progression (reps → vægt/sværere variant). Bygger pull-ups, dips, push-ups, håndstand og ben – med skill-arbejde mod muscle-up, planche og front lever.",
+   "weeks": 4,
+   "days": [
+    {
+     "id": "l1tn0ng4",
+     "name": "Helkrop A",
+     "items": [
+      {
+       "id": "xxrwfka8",
+       "ex": "band-pullup",
+       "alts": [
+        "scap-pull",
+        "negative-pullup"
+       ],
+       "sets": [
+        {
+         "r": 5,
+         "rMax": 8,
+         "rest": 120
+        },
+        {
+         "r": 5,
+         "rMax": 8,
+         "rest": 120
+        },
+        {
+         "r": 5,
+         "rMax": 8,
+         "rest": 120
+        }
+       ],
+       "wave": "cal",
+       "note": ""
+      },
+      {
+       "id": "96dmcpa3",
+       "ex": "negative-dip",
+       "alts": [
+        "support-hold",
+        "dip"
+       ],
+       "sets": [
+        {
+         "r": 5,
+         "rMax": 8,
+         "rest": 120
+        },
+        {
+         "r": 5,
+         "rMax": 8,
+         "rest": 120
+        },
+        {
+         "r": 5,
+         "rMax": 8,
+         "rest": 120
+        }
+       ],
+       "wave": "cal",
+       "note": ""
+      },
+      {
+       "id": "p85ohdly",
+       "ex": "bulgarian",
+       "alts": [
+        "split-squat",
+        "assisted-pistol"
+       ],
+       "sets": [
+        {
+         "r": 5,
+         "rMax": 8,
+         "rest": 120
+        },
+        {
+         "r": 5,
+         "rMax": 8,
+         "rest": 120
+        },
+        {
+         "r": 5,
+         "rMax": 8,
+         "rest": 120
+        }
+       ],
+       "wave": "cal",
+       "note": ""
+      },
+      {
+       "id": "3d6rq1qx",
+       "ex": "hanging-knee-raise",
+       "alts": [
+        "hollow-hold",
+        "hanging-leg-raise"
+       ],
+       "sets": [
+        {
+         "r": 8,
+         "rMax": 12,
+         "rest": 60
+        },
+        {
+         "r": 8,
+         "rMax": 12,
+         "rest": 60
+        },
+        {
+         "r": 8,
+         "rMax": 12,
+         "rest": 60
+        }
+       ],
+       "wave": "cal",
+       "note": ""
+      }
+     ]
+    },
+    {
+     "id": "09h4zato",
+     "name": "Helkrop B",
+     "items": [
+      {
+       "id": "sbyg2odo",
+       "ex": "feet-elevated-row",
+       "alts": [
+        "inverted-row",
+        "archer-row"
+       ],
+       "sets": [
+        {
+         "r": 5,
+         "rMax": 8,
+         "rest": 120
+        },
+        {
+         "r": 5,
+         "rMax": 8,
+         "rest": 120
+        },
+        {
+         "r": 5,
+         "rMax": 8,
+         "rest": 120
+        }
+       ],
+       "wave": "cal",
+       "note": ""
+      },
+      {
+       "id": "dlwr8vu0",
+       "ex": "diamond-pushup",
+       "alts": [
+        "pushup",
+        "decline-pushup"
+       ],
+       "sets": [
+        {
+         "r": 5,
+         "rMax": 8,
+         "rest": 120
+        },
+        {
+         "r": 5,
+         "rMax": 8,
+         "rest": 120
+        },
+        {
+         "r": 5,
+         "rMax": 8,
+         "rest": 120
+        }
+       ],
+       "wave": "cal",
+       "note": ""
+      },
+      {
+       "id": "85noyp6r",
+       "ex": "wall-hspu-negative",
+       "alts": [
+        "elevated-pike-pushup",
+        "hspu"
+       ],
+       "sets": [
+        {
+         "r": 8,
+         "rMax": 12,
+         "rest": 90
+        },
+        {
+         "r": 8,
+         "rMax": 12,
+         "rest": 90
+        },
+        {
+         "r": 8,
+         "rMax": 12,
+         "rest": 90
+        }
+       ],
+       "wave": "cal",
+       "note": ""
+      },
+      {
+       "id": "0nckej7s",
+       "ex": "bulgarian",
+       "alts": [
+        "split-squat",
+        "assisted-pistol"
+       ],
+       "sets": [
+        {
+         "r": 8,
+         "rMax": 12,
+         "rest": 90
+        },
+        {
+         "r": 8,
+         "rMax": 12,
+         "rest": 90
+        },
+        {
+         "r": 8,
+         "rMax": 12,
+         "rest": 90
+        }
+       ],
+       "wave": "cal",
+       "note": ""
+      },
+      {
+       "id": "wgobusu0",
+       "ex": "lsit",
+       "alts": [
+        "tuck-lsit"
+       ],
+       "sets": [
+        {
+         "t": 15,
+         "tMax": 30,
+         "rest": 90
+        },
+        {
+         "t": 15,
+         "tMax": 30,
+         "rest": 90
+        },
+        {
+         "t": 15,
+         "tMax": 30,
+         "rest": 90
+        }
+       ],
+       "wave": "cal",
+       "note": ""
+      }
+     ]
+    },
+    {
+     "id": "ukmeggc7",
+     "name": "Helkrop C – Skills",
+     "items": [
+      {
+       "id": "65q9q34y",
+       "ex": "band-muscleup",
+       "alts": [
+        "straight-bar-dip",
+        "negative-muscleup"
+       ],
+       "sets": [
+        {
+         "r": 2,
+         "rMax": 3,
+         "rest": 120
+        },
+        {
+         "r": 2,
+         "rMax": 3,
+         "rest": 120
+        },
+        {
+         "r": 2,
+         "rMax": 3,
+         "rest": 120
+        },
+        {
+         "r": 2,
+         "rMax": 3,
+         "rest": 120
+        },
+        {
+         "r": 2,
+         "rMax": 3,
+         "rest": 120
+        }
+       ],
+       "wave": "cal",
+       "note": ""
+      },
+      {
+       "id": "1fteqihk",
+       "ex": "tuck-planche",
+       "alts": [
+        "frog-stand",
+        "adv-tuck-planche"
+       ],
+       "sets": [
+        {
+         "t": 15,
+         "tMax": 30,
+         "rest": 90
+        },
+        {
+         "t": 15,
+         "tMax": 30,
+         "rest": 90
+        },
+        {
+         "t": 15,
+         "tMax": 30,
+         "rest": 90
+        }
+       ],
+       "wave": "cal",
+       "note": ""
+      },
+      {
+       "id": "zzy5aqj0",
+       "ex": "one-leg-fl",
+       "alts": [
+        "adv-tuck-fl",
+        "straddle-fl"
+       ],
+       "sets": [
+        {
+         "t": 15,
+         "tMax": 30,
+         "rest": 90
+        },
+        {
+         "t": 15,
+         "tMax": 30,
+         "rest": 90
+        },
+        {
+         "t": 15,
+         "tMax": 30,
+         "rest": 90
+        }
+       ],
+       "wave": "cal",
+       "note": ""
+      },
+      {
+       "id": "lyjmn85q",
+       "ex": "scap-pull",
+       "alts": [
+        "dead-hang",
+        "band-pullup"
+       ],
+       "sets": [
+        {
+         "r": 8,
+         "rMax": 12,
+         "rest": 90
+        },
+        {
+         "r": 8,
+         "rMax": 12,
+         "rest": 90
+        },
+        {
+         "r": 8,
+         "rMax": 12,
+         "rest": 90
+        }
+       ],
+       "wave": "cal",
+       "note": ""
+      },
+      {
+       "id": "htqauwpe",
+       "ex": "diamond-pushup",
+       "alts": [
+        "pushup",
+        "decline-pushup"
+       ],
+       "sets": [
+        {
+         "r": 8,
+         "rMax": 12,
+         "rest": 90
+        },
+        {
+         "r": 8,
+         "rMax": 12,
+         "rest": 90
+        },
+        {
+         "r": 8,
+         "rMax": 12,
+         "rest": 90
+        }
+       ],
+       "wave": "cal",
+       "note": ""
+      }
+     ]
+    }
+   ],
+   "auto": true,
+   "pos": {
+    "week": 1,
+    "day": 2
+   },
+   "created": 1759000000000
+  },
+  {
+   "id": "a1xxxxxx",
+   "name": "Powerløft · Øvet",
+   "tpl": "pl",
+   "level": 1,
+   "treeLvls": {
+    "pull": 2,
+    "dip": 2,
+    "row": 2
+   },
+   "desc": "Squat, bænk og dødløft med %-baseret progression ud fra din træningsmax (TM = 90 % af 1RM). Begynder: lineær progression. Øvet: 5/3/1-bølge med “first set last”. Avanceret: 6-ugers blokperiodisering mod peak.",
+   "weeks": 4,
+   "days": [
+    {
+     "id": "oixovect",
+     "name": "Squat",
+     "items": [
+      {
+       "id": "nz9wrp79",
+       "ex": "back-squat",
+       "alts": [],
+       "sets": [
+        {
+         "pct": 70,
+         "r": 5,
+         "rest": 180
+        },
+        {
+         "pct": 70,
+         "r": 5,
+         "rest": 180
+        },
+        {
+         "pct": 70,
+         "r": 5,
+         "rest": 180,
+         "amrap": false
+        }
+       ],
+       "wave": "pl531",
+       "note": "",
+       "lift": "squat"
+      },
+      {
+       "id": "u6zb8grw",
+       "ex": "bench",
+       "alts": [],
+       "sets": [
+        {
+         "r": 5,
+         "rMax": null,
+         "rest": 150,
+         "pct": 70
+        },
+        {
+         "r": 5,
+         "rMax": null,
+         "rest": 150,
+         "pct": 70
+        },
+        {
+         "r": 5,
+         "rMax": null,
+         "rest": 150,
+         "pct": 70
+        }
+       ],
+       "wave": "none",
+       "note": "",
+       "lift": "bench"
+      },
+      {
+       "id": "s6fkys5j",
+       "ex": "barbell-row",
+       "alts": [],
+       "sets": [
+        {
+         "r": 6,
+         "rMax": 10,
+         "rest": 120,
+         "rpe": 8
+        },
+        {
+         "r": 6,
+         "rMax": 10,
+         "rest": 120,
+         "rpe": 8
+        },
+        {
+         "r": 6,
+         "rMax": 10,
+         "rest": 120,
+         "rpe": 8
+        }
+       ],
+       "wave": "cal",
+       "note": ""
+      },
+      {
+       "id": "hmli34av",
+       "ex": "plank",
+       "alts": [
+        "hollow-hold"
+       ],
+       "sets": [
+        {
+         "t": 30,
+         "tMax": 60,
+         "rest": 60
+        },
+        {
+         "t": 30,
+         "tMax": 60,
+         "rest": 60
+        },
+        {
+         "t": 30,
+         "tMax": 60,
+         "rest": 60
+        },
+        {
+         "t": 30,
+         "tMax": 60,
+         "rest": 60
+        }
+       ],
+       "wave": "cal",
+       "note": ""
+      }
+     ]
+    },
+    {
+     "id": "66g0h7fl",
+     "name": "Bænkpres",
+     "items": [
+      {
+       "id": "3a8l30ys",
+       "ex": "bench",
+       "alts": [],
+       "sets": [
+        {
+         "pct": 70,
+         "r": 5,
+         "rest": 180
+        },
+        {
+         "pct": 70,
+         "r": 5,
+         "rest": 180
+        },
+        {
+         "pct": 70,
+         "r": 5,
+         "rest": 180,
+         "amrap": false
+        }
+       ],
+       "wave": "pl531",
+       "note": "",
+       "lift": "bench"
+      },
+      {
+       "id": "7h9um1o7",
+       "ex": "close-grip-bench",
+       "alts": [],
+       "sets": [
+        {
+         "r": 6,
+         "rMax": 10,
+         "rest": 120,
+         "rpe": 8
+        },
+        {
+         "r": 6,
+         "rMax": 10,
+         "rest": 120,
+         "rpe": 8
+        },
+        {
+         "r": 6,
+         "rMax": 10,
+         "rest": 120,
+         "rpe": 8
+        }
+       ],
+       "wave": "cal",
+       "note": ""
+      },
+      {
+       "id": "or9twvyd",
+       "ex": "band-pullup",
+       "alts": [
+        "scap-pull",
+        "negative-pullup"
+       ],
+       "sets": [
+        {
+         "r": 4,
+         "rMax": 6,
+         "rest": 150
+        },
+        {
+         "r": 4,
+         "rMax": 6,
+         "rest": 150
+        },
+        {
+         "r": 4,
+         "rMax": 6,
+         "rest": 150
+        },
+        {
+         "r": 4,
+         "rMax": 6,
+         "rest": 150
+        }
+       ],
+       "wave": "cal",
+       "note": ""
+      },
+      {
+       "id": "mzbd52gx",
+       "ex": "hanging-leg-raise",
+       "alts": [
+        "hanging-knee-raise",
+        "toes-to-bar"
+       ],
+       "sets": [
+        {
+         "r": 10,
+         "rMax": 15,
+         "rest": 60
+        },
+        {
+         "r": 10,
+         "rMax": 15,
+         "rest": 60
+        },
+        {
+         "r": 10,
+         "rMax": 15,
+         "rest": 60
+        }
+       ],
+       "wave": "cal",
+       "note": ""
+      }
+     ]
+    },
+    {
+     "id": "d8ihe62b",
+     "name": "Dødløft",
+     "items": [
+      {
+       "id": "3j5cfnoe",
+       "ex": "deadlift",
+       "alts": [],
+       "sets": [
+        {
+         "pct": 70,
+         "r": 5,
+         "rest": 180
+        },
+        {
+         "pct": 70,
+         "r": 5,
+         "rest": 180
+        },
+        {
+         "pct": 70,
+         "r": 5,
+         "rest": 180,
+         "amrap": false
+        }
+       ],
+       "wave": "pl531",
+       "note": "",
+       "lift": "deadlift"
+      },
+      {
+       "id": "jqfe7lnq",
+       "ex": "pause-squat",
+       "alts": [],
+       "sets": [
+        {
+         "r": 6,
+         "rMax": 10,
+         "rest": 120,
+         "rpe": 8
+        },
+        {
+         "r": 6,
+         "rMax": 10,
+         "rest": 120,
+         "rpe": 8
+        },
+        {
+         "r": 6,
+         "rMax": 10,
+         "rest": 120,
+         "rpe": 8
+        }
+       ],
+       "wave": "cal",
+       "note": ""
+      },
+      {
+       "id": "wcowjwwo",
+       "ex": "good-morning",
+       "alts": [],
+       "sets": [
+        {
+         "r": 6,
+         "rMax": 10,
+         "rest": 120,
+         "rpe": 8
+        },
+        {
+         "r": 6,
+         "rMax": 10,
+         "rest": 120,
+         "rpe": 8
+        },
+        {
+         "r": 6,
+         "rMax": 10,
+         "rest": 120,
+         "rpe": 8
+        }
+       ],
+       "wave": "cal",
+       "note": ""
+      },
+      {
+       "id": "tmahdetl",
+       "ex": "ab-wheel",
+       "alts": [],
+       "sets": [
+        {
+         "r": 10,
+         "rMax": 15,
+         "rest": 60
+        },
+        {
+         "r": 10,
+         "rMax": 15,
+         "rest": 60
+        },
+        {
+         "r": 10,
+         "rMax": 15,
+         "rest": 60
+        }
+       ],
+       "wave": "cal",
+       "note": ""
+      }
+     ]
+    },
+    {
+     "id": "l7xy0508",
+     "name": "Militærpres & Overkrop",
+     "items": [
+      {
+       "id": "6adi6iip",
+       "ex": "ohp",
+       "alts": [],
+       "sets": [
+        {
+         "pct": 70,
+         "r": 5,
+         "rest": 180
+        },
+        {
+         "pct": 70,
+         "r": 5,
+         "rest": 180
+        },
+        {
+         "pct": 70,
+         "r": 5,
+         "rest": 180,
+         "amrap": false
+        }
+       ],
+       "wave": "pl531",
+       "note": "",
+       "lift": "ohp"
+      },
+      {
+       "id": "2iz8iqfu",
+       "ex": "incline-bench",
+       "alts": [],
+       "sets": [
+        {
+         "r": 6,
+         "rMax": 10,
+         "rest": 120,
+         "rpe": 8
+        },
+        {
+         "r": 6,
+         "rMax": 10,
+         "rest": 120,
+         "rpe": 8
+        },
+        {
+         "r": 6,
+         "rMax": 10,
+         "rest": 120,
+         "rpe": 8
+        }
+       ],
+       "wave": "cal",
+       "note": ""
+      },
+      {
+       "id": "8yyrafle",
+       "ex": "negative-dip",
+       "alts": [
+        "support-hold",
+        "dip"
+       ],
+       "sets": [
+        {
+         "r": 8,
+         "rMax": 12,
+         "rest": 90
+        },
+        {
+         "r": 8,
+         "rMax": 12,
+         "rest": 90
+        },
+        {
+         "r": 8,
+         "rMax": 12,
+         "rest": 90
+        }
+       ],
+       "wave": "cal",
+       "note": ""
+      },
+      {
+       "id": "wy7va6iy",
+       "ex": "feet-elevated-row",
+       "alts": [
+        "inverted-row",
+        "archer-row"
+       ],
+       "sets": [
+        {
+         "r": 8,
+         "rMax": 12,
+         "rest": 90
+        },
+        {
+         "r": 8,
+         "rMax": 12,
+         "rest": 90
+        },
+        {
+         "r": 8,
+         "rMax": 12,
+         "rest": 90
+        }
+       ],
+       "wave": "cal",
+       "note": ""
+      }
+     ]
+    }
+   ],
+   "auto": true,
+   "pos": {
+    "week": 0,
+    "day": 0
+   },
+   "created": 1759100000000
+  }
+ ],
+ "activeProg": "a0xxxxxx",
+ "logs": [
+  {
+   "id": "a3xxxxxx",
+   "date": 1759200000000,
+   "start": 1759196400000,
+   "dur": 3600000,
+   "progId": "a0xxxxxx",
+   "week": 0,
+   "day": 0,
+   "name": "Dag 1",
+   "items": [
+    {
+     "ex": "pullup",
+     "lift": null,
+     "block": null,
+     "circuit": null,
+     "result": null,
+     "sets": [
+      {
+       "tgt": {
+        "r": 5,
+        "rMax": 8,
+        "rest": 120
+       },
+       "r": 6,
+       "kg": 0,
+       "t": 0,
+       "rpe": 8
+      },
+      {
+       "tgt": {
+        "r": 5,
+        "rMax": 8,
+        "rest": 120
+       },
+       "r": 6,
+       "kg": 0,
+       "t": 0,
+       "rpe": 8.5
+      },
+      {
+       "tgt": {
+        "r": 5,
+        "rMax": 8,
+        "rest": 120
+       },
+       "r": 5,
+       "kg": 0,
+       "t": 0,
+       "rpe": 9
+      }
+     ]
+    },
+    {
+     "ex": "dip",
+     "lift": null,
+     "block": null,
+     "circuit": null,
+     "result": null,
+     "sets": [
+      {
+       "tgt": {
+        "r": 5,
+        "rMax": 8,
+        "rest": 120
+       },
+       "r": 8,
+       "kg": 0,
+       "t": 0,
+       "rpe": 8
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "a4xxxxxx",
+   "date": 1759300000000,
+   "start": 1759296400000,
+   "dur": 3600000,
+   "progId": "a1xxxxxx",
+   "week": 0,
+   "day": 0,
+   "name": "Dag 1",
+   "items": [
+    {
+     "ex": "back-squat",
+     "lift": "squat",
+     "block": null,
+     "circuit": null,
+     "result": null,
+     "sets": [
+      {
+       "tgt": {
+        "pct": 70,
+        "r": 5,
+        "rest": 180
+       },
+       "r": 5,
+       "kg": 100,
+       "t": 0,
+       "rpe": 7
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "a5xxxxxx",
+   "date": 1759400000000,
+   "start": 1759396400000,
+   "dur": 3600000,
+   "progId": "a0xxxxxx",
+   "week": 0,
+   "day": 1,
+   "name": "Dag 2",
+   "items": [
+    {
+     "ex": "pullup",
+     "lift": null,
+     "block": {
+      "kind": "amrap",
+      "min": 10
+     },
+     "circuit": [
+      {
+       "ex": "pullup",
+       "r": 3
+      },
+      {
+       "ex": "pushup",
+       "r": 6
+      }
+     ],
+     "result": {
+      "done": true,
+      "rounds": 7
+     },
+     "sets": []
+    }
+   ]
+  },
+  {
+   "id": "a6xxxxxx",
+   "date": 1759500000000,
+   "start": 1759496400000,
+   "dur": 3600000,
+   "progId": "a2xxxxxx",
+   "week": 0,
+   "day": 0,
+   "name": "Dag 1",
+   "items": [
+    {
+     "ex": "plank",
+     "lift": null,
+     "block": null,
+     "circuit": null,
+     "result": null,
+     "sets": [
+      {
+       "tgt": {
+        "t": 30,
+        "rest": 60
+       },
+       "r": 0,
+       "kg": 0,
+       "t": 45,
+       "rpe": 0
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "a7xxxxxx",
+   "date": 1759600000000,
+   "start": 1759596400000,
+   "dur": 3600000,
+   "progId": null,
+   "week": 0,
+   "day": 0,
+   "name": "Fri træning",
+   "items": [
+    {
+     "ex": "my-k3j9x2ab",
+     "lift": null,
+     "block": null,
+     "circuit": null,
+     "result": null,
+     "sets": [
+      {
+       "tgt": {
+        "r": 5,
+        "rMax": 8,
+        "rest": 120
+       },
+       "r": 10,
+       "kg": 0,
+       "t": 0,
+       "rpe": 7
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "tests": [
+  {
+   "id": "a8xxxxxx",
+   "k": "pullup",
+   "v": 12,
+   "date": 1759150000000
+  },
+  {
+   "id": "a9xxxxxx",
+   "k": "hang",
+   "v": 75,
+   "date": 1759160000000
+  },
+  {
+   "id": "aaxxxxxx",
+   "k": "rm_squat",
+   "v": 140,
+   "date": 1759170000000
+  }
+ ],
+ "customEx": [
+  {
+   "id": "my-k3j9x2ab",
+   "n": "Ringe-flyes",
+   "c": "push",
+   "type": "reps",
+   "eq": [],
+   "m": [],
+   "img": null,
+   "cues": [
+    "Langsomt ned"
+   ],
+   "custom": true,
+   "w": true
+  }
+ ],
+ "videos": {
+  "pullup": "https://youtu.be/eGo4IYlbE5g"
+ },
+ "rm": {
+  "squat": 140,
+  "bench": 100,
+  "deadlift": 180,
+  "ohp": 60
+ },
+ "settings": {
+  "tmPct": 90,
+  "inc": 2.5,
+  "rest": 120,
+  "sound": true,
+  "vibrate": true,
+  "wake": true,
+  "auto": true
+ },
+ "active": {
+  "progId": "a0xxxxxx",
+  "week": 1,
+  "day": 2,
+  "name": "Helkrop C – Skills",
+  "start": 1759700000000,
+  "items": []
+ }
+}

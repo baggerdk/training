@@ -185,7 +185,7 @@ function buildProgram(tplId, nDays, L, treeLvls) {
   const days = order.map(k => ({ id: uid(), name: tpl.days[k].n, items: tpl.days[k].slots.map(sl => buildItem(sl, L, treeLvls, L)) }));
   const weeks = tpl.pl ? [4, 4, 6][L] : 4;
   return {
-    id: uid(), name: tpl.name + ' · ' + LEVELS[L], tpl: tplId, level: L, treeLvls: Object.assign({}, treeLvls),
+    id: newId(), name: tpl.name + ' · ' + LEVELS[L], tpl: tplId, level: L, treeLvls: Object.assign({}, treeLvls),
     desc: tpl.desc, weeks, days, auto: true, pos: { week: 0, day: 0 }, created: Date.now()
   };
 }

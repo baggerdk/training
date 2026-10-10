@@ -38,7 +38,8 @@ const AUTH = (() => {
         headers, body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined, cache: 'no-store',
       });
     } catch (e) {
-      throw new ApiError(0, 'offline', 'Ingen forbindelse til serveren – prøv igen, når du er online');
+      // Also what Cloudflare's rate limiting looks like from here: its 429 has no CORS headers, so fetch just fails
+      throw new ApiError(0, 'offline', 'Kunne ikke få kontakt til serveren. Tjek at du er online, vent et øjeblik, og prøv igen.');
     }
     if (res.status === 204) return null;
     let data = null;
