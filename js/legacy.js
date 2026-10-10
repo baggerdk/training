@@ -31,5 +31,47 @@
     return s;
   }
 
-  return { FORMAT_VERSION, LEGACY_KEY, migrateLegacyState };
+  // Merges an imported backup (already converted with migrateLegacyState) into the current state without
+  // deleting anything – with sync, replacing would delete everything on the server that isn't in the file.
+  // Duplicates are recognised by id and by content, so importing the same old backup twice adds nothing
+  // (its 8-character ids get new UUIDs on every conversion). Pure: returns a new state and a summary.
+  function mergeImport(current, incoming) {
+    const s = JSON.parse(JSON.stringify(current)), inc = JSON.parse(JSON.stringify(incoming));
+    const added = { programs: 0, logs: 0, tests: 0, customEx: 0 }, skipped = { programs: 0, logs: 0, tests: 0, customEx: 0 };
+    ['programs', 'logs', 'tests', 'customEx'].forEach(k => { s[k] = s[k] || []; inc[k] = inc[k] || []; });
+
+    // Programs: same id, or same name created at the same moment
+    const progFp = p => (p.name || '') + '|' + (p.created || '');
+    const progMap = {};
+    for (const p of inc.programs) {
+      const same = s.programs.find(x => x.id === p.id || progFp(x) === progFp(p));
+      if (same) { progMap[p.id] = same.id; skipped.programs++; } else { s.programs.push(p); progMap[p.id] = p.id; added.programs++; }
+    }
+    // Workouts: same id, or the same workout (finished at the same moment with the same name)
+    const logFp = l => (l.date || '') + '|' + (l.name || '') + '|' + (l.start || '');
+    for (const l of inc.logs) {
+      if (s.logs.some(x => x.id === l.id || logFp(x) === logFp(l))) { skipped.logs++; continue; }
+      s.logs.push(Object.assign(l, { progId: l.progId ? progMap[l.progId] || null : null }));
+      added.logs++;
+    }
+    for (const t of inc.tests) {
+      if (s.tests.some(x => x.id === t.id || (x.k === t.k && x.date === t.date))) { skipped.tests++; continue; }
+      s.tests.push(t); added.tests++;
+    }
+    for (const e of inc.customEx) {
+      if (s.customEx.some(x => x.id === e.id)) { skipped.customEx++; continue; }
+      s.customEx.push(e); added.customEx++;
+    }
+    s.logs.sort((a, b) => (a.date || 0) - (b.date || 0));
+    s.tests.sort((a, b) => (a.date || 0) - (b.date || 0));
+
+    // Videos and 1RM only fill gaps; the current settings and active program win
+    s.videos = Object.assign({}, inc.videos, s.videos);
+    s.rm = Object.assign({}, s.rm);
+    for (const [lift, kg] of Object.entries(inc.rm || {})) if (!s.rm[lift] && kg) s.rm[lift] = kg;
+    if (!s.activeProg && inc.activeProg) s.activeProg = progMap[inc.activeProg] || null;
+    return { state: s, added, skipped };
+  }
+
+  return { FORMAT_VERSION, LEGACY_KEY, migrateLegacyState, mergeImport };
 });

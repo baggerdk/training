@@ -958,6 +958,23 @@ VIEWS.invite = () => {
   <button class="btn ghost block" data-a="toLogin">Jeg har allerede en konto</button>`);
 };
 
+// The old PWA (GitHub Pages, no account): the way over to the Android app. The app can't read this browser's
+// data (another origin), so the data travels as a backup file.
+const APK_PAGE_URL = 'https://github.com/baggerdk/training/releases/latest';
+function moveToAppCard() {
+  if (AUTH.required) return '';
+  return `<div class="card hero"><b>Flyt til Android-appen</b>
+    <p class="small muted">power-krop findes nu som Android-app med login, så dine data gemmes på din konto og følger dig mellem telefoner.</p>
+    <ol class="small" style="padding-left:20px;margin:8px 0">
+      <li>Tryk <b>Eksportér mine data</b>, og gem filen (fx i Drev).</li>
+      <li>Hent og installér appen, og log ind med den invitation, du har fået af din træner.</li>
+      <li>I appen: <b>Mere → Importér</b>, og vælg filen. Dine programmer og træninger lægges ind på din konto.</li>
+    </ol>
+    <button class="btn pri block" data-a="export">Eksportér mine data</button>
+    <a class="btn block mt" href="${APK_PAGE_URL}" target="_blank" rel="noopener">Hent appen</a>
+    <p class="xs muted" style="margin-bottom:0">Dine data her i browseren bliver liggende, så du kan fortsætte, til du er flyttet.</p></div>`;
+}
+
 function accountCard() {
   const p = AUTH.profile;
   if (!p) return '';
@@ -971,7 +988,7 @@ function accountCard() {
 
 VIEWS.settings = () => {
   const st = S.settings, sw = (k, n, d) => `<div class="toggle"><span>${n}${d ? `<div class="xs muted">${d}</div>` : ''}</span><div class="sw ${st[k] ? 'on' : ''}" data-a="setToggle" data-k="${k}"></div></div>`;
-  let h = topbar('Mere') + accountCard();
+  let h = topbar('Mere') + accountCard() + moveToAppCard();
   const standalone = matchMedia('(display-mode: standalone)').matches;
   if (!standalone && !PLATFORM.native) h += `<div class="card hero"><b>Installer som app</b><p class="small muted">Få StålKrop på startskærmen i fuld skærm – virker også offline.</p>
     ${DEFER ? `<button class="btn pri block" data-a="install">Installer app</button>` : `<p class="small">Chrome: menu <b>⋮</b> → <b>Installer app</b> / <b>Føj til startskærm</b>.<br>Samsung Internet: menu <b>≡</b> → <b>Tilføj side til</b> → <b>Startskærm</b>.</p>`}</div>`;
@@ -1272,6 +1289,17 @@ const C = {
       try {
         // Reads both old backups (format v1, 8-character ids) and new ones (v2, UUIDs)
         const d = migrateLegacyState(JSON.parse(r.result));
+        if (AUTH.loggedIn()) {
+          // With an account the backup is merged in: replacing would delete data on the server through sync
+          const m = mergeImport(S, d), a = m.added;
+          if (!a.programs && !a.logs && !a.tests && !a.customEx) return toast('Alt i filen findes allerede på din konto');
+          const msg = `Tilføj til din konto:\n• ${a.programs} programmer\n• ${a.logs} træninger\n• ${a.tests} maks-tests` +
+            (a.customEx ? `\n• ${a.customEx} egne øvelser` : '') +
+            (m.skipped.programs + m.skipped.logs ? `\n\n${m.skipped.programs + m.skipped.logs} findes allerede og springes over.` : '');
+          if (!confirm(msg)) return;
+          S = withDefaults(m.state); flushSave(); scheduleSync(0); toast('Backup importeret'); go('#/');
+          return;
+        }
         if (!confirm(`Importér backup med ${d.programs.length} programmer og ${d.logs.length} træninger? Nuværende data erstattes.`)) return;
         S = withDefaults(d); flushSave(); toast('Backup importeret'); go('#/');
       } catch (e) { toast('Ugyldig backup-fil'); }
