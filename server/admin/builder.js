@@ -24,6 +24,7 @@ function templateFit(tplId, athlete) {
     return ok ? { rec: level >= 1, why: 'Har basisstyrken til skills (pull-ups og dips)' } : { rec: false, why: 'Kræver ca. 5+ pull-ups og 10+ dips – byg basis først' };
   }
   if (tplId === 'pl' || tplId === 'hyb') return { rec: level >= 1, why: 'Kræver vægtstang og registreret 1RM i appen' };
+  if (tplId === 'beg') return { rec: level === 0, why: level === 0 ? 'Lavet til helt nye og dem, der starter forfra' : 'Til begyndere – brugeren er videre end det' };
   return { rec: true, why: level === 0 ? 'God start for begyndere' : 'Passer til alle niveauer' };
 }
 

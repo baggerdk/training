@@ -3,6 +3,19 @@
 
 const TEMPLATES = [
   {
+    id: 'beg', track: 'Begynder', name: 'Begynder – Helkrop',
+    desc: 'Til dig, der er helt ny eller starter forfra. Hele kroppen hver gang med moderat volumen (8–12 reps), de letteste trin i progressionerne og masser af hold-øvelser for core og skuldre. Fokus på god teknik – rykker du videre i træerne, følger programmet med.',
+    days: {
+      A: { n: 'Helkrop A', slots: [{ t: 'pull', s: 'vol' }, { t: 'push', s: 'vol' }, { t: 'legs', s: 'vol' }, { e: 'plank', s: 'hold' }] },
+      B: { n: 'Helkrop B', slots: [{ t: 'row', s: 'vol' }, { t: 'dip', s: 'vol' }, { e: 'glute-bridge', s: 'vol' }, { e: 'hollow-hold', s: 'hold' }] },
+      C: { n: 'Helkrop C', slots: [{ t: 'pull', s: 'vol', off: -1 }, { t: 'push', s: 'vol' }, { e: 'lunge', s: 'vol' }, { e: 'side-plank', s: 'hold' }] },
+      D: { n: 'Kondition & Ryg', slots: [{ e: 'squat', s: 'vol' }, { e: 'band-pull-apart', s: 'vol' }, { e: 'superman', s: 'core' }, { e: 'jump-rope', s: 'hold' }] },
+      E: { n: 'Teknik & Hold', slots: [{ e: 'scap-pull', s: 'vol' }, { e: 'dead-hang', s: 'hold' }, { t: 'handstand', s: 'hold' }, { t: 'lsit', s: 'hold' }] },
+      F: { n: 'Helkrop let', slots: [{ t: 'row', s: 'vol' }, { t: 'push', s: 'vol' }, { t: 'legs', s: 'vol' }, { e: 'hanging-knee-raise', s: 'core' }] },
+    },
+    sched: { 2: ['A', 'B'], 3: ['A', 'B', 'C'], 4: ['A', 'B', 'C', 'D'], 5: ['A', 'B', 'C', 'D', 'E'], 6: ['A', 'B', 'C', 'D', 'E', 'F'] },
+  },
+  {
     id: 'mil', track: 'Military', name: 'Military Calisthenics – Styrke',
     desc: 'Inspireret af militær calisthenics med fokus på styrke: høj frekvens på pull-ups, dips og push-ups, ladders, EMOM og maks-sæt. Tip: “greasing the groove” – læg 3–5 lette sæt pull-ups (ca. 50 % af max) ind i løbet af hverdagen.',
     days: {

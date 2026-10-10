@@ -222,7 +222,7 @@ VIEWS.templates = async () => {
     ${t.created_by === me || API.isAdmin() ? `<div class="row mt"><a class="btn sm" href="#/template/${t.id}">Ret</a>
       <button class="btn sm ghost" data-a="toggleShared" data-id="${t.id}">${t.shared ? 'Stop deling' : 'Del med alle trænere'}</button>
       <button class="btn sm ghost danger" data-a="deleteTemplate" data-id="${t.id}" data-name="${esc(t.name)}">Slet</button></div>` : ''}</div>`;
-  return `<h1>Skabeloner</h1><p class="muted">Ud over appens 5 indbyggede skabeloner kan du gemme dine egne programmer som skabeloner og bruge dem til flere brugere.
+  return `<h1>Skabeloner</h1><p class="muted">Ud over appens ${TEMPLATES.length} indbyggede skabeloner kan du gemme dine egne programmer som skabeloner og bruge dem til flere brugere.
     Gem et program som skabelon fra programbyggeren.</p>
     <h2>Indbyggede</h2><div class="grid3">${TEMPLATES.map(t => `<div class="card"><b>${esc(t.name)}</b><p class="small muted">${esc(t.desc)}</p>
       <div class="xs dim">2–6 dage · begynder, øvet og avanceret · ${templateTrees(t.id).length} progressionstræer</div></div>`).join('')}</div>
