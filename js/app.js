@@ -605,14 +605,18 @@ VIEWS.ex = () => {
 };
 
 // ---------- PROGRAMMER ----------
+// A program a trainer/admin wrote for this user: usable, but only the author may change it (the server enforces it)
+const fromTrainer = p => !!(p && p.author && AUTH.profile && p.author !== AUTH.profile.id);
+
 VIEWS.programs = () => {
   let h = topbar('Programmer');
-  h += `<h2>Mine programmer</h2>`;
-  if (!S.programs.length) h += `<div class="card empty">Du har ingen programmer endnu. Vælg en skabelon nedenfor eller byg dit eget.</div>`;
-  S.programs.forEach(p => {
-    h += `<div class="card tap" data-a="go" data-h="#/prog/${p.id}"><div class="row between"><b>${esc(p.name)}</b>${p.id === S.activeProg ? '<span class="badge ok">Aktivt</span>' : ''}</div>
+  const card = p => `<div class="card tap" data-a="go" data-h="#/prog/${p.id}"><div class="row between"><b>${esc(p.name)}</b>${p.id === S.activeProg ? '<span class="badge ok">Aktivt</span>' : ''}</div>
       <div class="small muted mt">${p.days.length} dage/uge · ${p.weeks} uger · ${p.auto ? 'auto-progression' : 'manuel'}</div></div>`;
-  });
+  const shared = S.programs.filter(fromTrainer), own = S.programs.filter(p => !fromTrainer(p));
+  if (shared.length) h += `<h2>Fra din træner</h2>` + shared.map(card).join('');
+  h += `<h2>Mine programmer</h2>`;
+  if (!own.length) h += `<div class="card empty">${shared.length ? 'Du har ingen egne programmer. Kopiér et fra din træner, eller vælg en skabelon nedenfor.' : 'Du har ingen programmer endnu. Vælg en skabelon nedenfor eller byg dit eget.'}</div>`;
+  own.forEach(p => { h += card(p); });
   h += `<button class="btn block" data-a="newBlank">＋ Byg nyt program fra bunden</button>`;
   h += `<h2>Skabeloner</h2><p class="muted small" style="margin-top:-6px">Alle skabeloner kan køres 2–6 dage om ugen og tilpasses dit niveau.</p>`;
   TEMPLATES.forEach(t => {
@@ -647,6 +651,7 @@ VIEWS.prog = () => {
   const p = S.programs.find(x => x.id === ROUTE[1]);
   if (!p) return topbar('Program', true) + '<div class="empty">Programmet findes ikke.</div>';
   const pos = clampPos(p);
+  if (fromTrainer(p)) return trainerProgramView(p, pos);
   let h = topbar('Rediger program', true);
   h += `<label class="f"><span>Navn</span><input class="in" data-c="progName" value="${esc(p.name)}"></label>`;
   if (p.desc) h += `<details class="small muted mb"><summary>Om programmet</summary><p>${esc(p.desc)}</p></details>`;
@@ -675,6 +680,27 @@ VIEWS.prog = () => {
   return h;
 };
 function curProg() { return S.programs.find(x => x.id === ROUTE[1]); }
+
+// Read-only view of a trainer's program: the user can follow and train it, and copy it to edit their own version
+function trainerProgramView(p, pos) {
+  let h = topbar(p.name, true);
+  h += `<div class="hint up" style="margin:0 0 12px">Dette program er lavet til dig af din træner. Du kan træne efter det, men kun træneren kan ændre det. Vil du tilpasse det selv, så kopiér det til dine egne programmer.</div>`;
+  if (p.desc) h += `<p class="small muted">${esc(p.desc)}</p>`;
+  h += `<div class="card">
+    <div class="toggle"><span>Aktivt program</span><div class="sw ${S.activeProg === p.id ? 'on' : ''}" data-a="progActive"></div></div>
+    <div class="toggle" style="border:0"><span>Næste træning</span><span class="muted small">Uge ${pos.week + 1} af ${p.weeks} · ${esc(p.days[pos.day] ? p.days[pos.day].name : '')}</span></div></div>`;
+  p.days.forEach((d, di) => {
+    h += `<div class="day"><div class="day-h"><span class="badge">${di + 1}</span><b class="grow">${esc(d.name)}</b><button class="ib" data-a="dayStart" data-d="${di}" title="Start">▶</button></div>`;
+    d.items.forEach(it => {
+      const e = exById(it.ex);
+      h += `<div class="item">${thumb(e)}<div class="grow"><b>${esc(e ? e.n : it.ex)}</b><div class="small muted">${esc(itemSummary(it, pos.week, p))}</div>
+        ${it.note ? `<div class="xs dim">${esc(it.note)}</div>` : ''}</div></div>`;
+    });
+    h += `</div>`;
+  });
+  h += `<button class="btn block" data-a="progDup">Kopiér til mine programmer</button>`;
+  return h;
+}
 
 function newItem(exId) {
   const ex = exById(exId), rest = S.settings.rest;
@@ -982,7 +1008,8 @@ const A = {
     if (S.active.progId) {
       const p = S.programs.find(x => x.id === S.active.progId), d = p && p.days[S.active.day];
       const src = d && d.items.find(it => it.id === a.src);
-      if (src && confirm('Gem det nye trin permanent i programmet?')) { src.alts = [...new Set([src.ex].concat(src.alts || [], defaultAlts(nx)))].filter(x => x !== nx); src.ex = nx; }
+      // A trainer's program can't be changed here (only for this workout); the trainer adjusts it
+      if (src && !fromTrainer(p) && confirm('Gem det nye trin permanent i programmet?')) { src.alts = [...new Set([src.ex].concat(src.alts || [], defaultAlts(nx)))].filter(x => x !== nx); src.ex = nx; }
     }
     save(); render();
   },
@@ -1082,7 +1109,11 @@ const A = {
     const np = buildProgram(p.tpl, n, p.level, p.treeLvls || {});
     p.days = np.days; p.pos = { week: p.pos.week, day: 0 }; save(); render();
   },
-  progDup() { const p = clone(curProg()); p.id = newId(); p.name += ' (kopi)'; p.pos = { week: 0, day: 0 }; S.programs.push(p); save(); go('#/prog/' + p.id); },
+  progDup() {
+    // A copy is always the user's own program, also when the original came from a trainer
+    const src = curProg(), p = clone(src); p.id = newId(); delete p.owner; delete p.author; p.created = Date.now();
+    p.name += fromTrainer(src) ? ' (min kopi)' : ' (kopi)'; p.pos = { week: 0, day: 0 }; S.programs.push(p); save(); toast('Kopieret til dine programmer'); go('#/prog/' + p.id);
+  },
   progDel() { const p = curProg(); if (!confirm('Slet “' + p.name + '”? Din træningshistorik bevares.')) return; S.programs = S.programs.filter(x => x !== p); if (S.activeProg === p.id) S.activeProg = S.programs[0] ? S.programs[0].id : null; save(); go('#/programs'); },
   addDay() { const p = curProg(); p.days.push({ id: uid(), name: 'Dag ' + (p.days.length + 1), items: [] }); save(); render(); },
   dayStart(el) { const p = curProg(); if (S.active && !confirm('Der er allerede en træning i gang. Erstat den?')) return; startWorkout(p.id, p.pos.week, +el.dataset.d); },

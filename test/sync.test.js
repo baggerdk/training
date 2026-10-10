@@ -225,3 +225,15 @@ describe('sync-motoren', () => {
     expect(server.pushes).toBe(1);
   });
 });
+
+describe('programmer fra en træner', () => {
+  it('får ejer og forfatter med og sendes tilbage uændret, hvis brugeren ikke rører dem', () => {
+    const { programToRow, rowToProgram } = require('../js/sync-map.js');
+    const row = { id: newId(), owner_id: ME, created_by: TRAINER, name: 'Fra træner', template_key: 'cal', level: 'øvet', days_per_week: 1,
+      data: { tpl: 'cal', level: 1, weeks: 4, auto: true, days: [{ id: 'd1', name: 'Dag 1', items: [] }] } };
+    const p = rowToProgram(row, ME);
+    expect(p).toMatchObject({ owner: ME, author: TRAINER, name: 'Fra træner' });
+    const back = programToRow(p, ME);
+    expect(back).toEqual({ id: row.id, owner_id: ME, name: row.name, template_key: 'cal', level: 'øvet', days_per_week: 1, data: row.data });
+  });
+});
