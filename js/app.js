@@ -316,10 +316,15 @@ let ROUTE = [];
 function go(h) { if (location.hash === h) render(); else location.hash = h; }
 let KEEPSHEET = false;
 window.addEventListener('hashchange', () => { if (KEEPSHEET) KEEPSHEET = false; else closeSheet(); render(true); });
+const PUBLIC_VIEWS = ['login', 'invite'];
 function render(top) {
   const h = (location.hash || '#/').slice(2);
   ROUTE = h.split('/').filter(Boolean).map(decodeURIComponent);
-  const v = ROUTE[0] || 'home';
+  let v = ROUTE[0] || 'home';
+  // Login gate: without a session only the login and invite screens are shown (offline a saved session is enough)
+  if (AUTH.required && !AUTH.loggedIn() && !PUBLIC_VIEWS.includes(v)) v = 'login';
+  if (AUTH.loggedIn() && v === 'login') v = 'home';
+  document.body.classList.toggle('noauth', PUBLIC_VIEWS.includes(v));
   const y = window.scrollY;
   const fn = VIEWS[v] || VIEWS.home;
   $('#app').innerHTML = fn();
@@ -795,9 +800,57 @@ function testSheet() {
 // ---------- MERE / INDSTILLINGER ----------
 let DEFER = null;
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); DEFER = e; if ((ROUTE[0] || '') === 'settings') render(); });
+// ---------- LOGIN ----------
+const ROLE_NAMES = { admin: 'Admin', trainer: 'Træner', user: 'Bruger' };
+let AUTHFORM = { busy: false, error: '' };
+
+function authShell(inner) {
+  return `<div class="auth"><div class="brand"><div class="logo">💪</div><h1>power-krop</h1>
+    <p class="muted small">Calisthenics, powerløft og military styrke</p></div>${inner}</div>`;
+}
+function authError() { return AUTHFORM.error ? `<div class="hint err" role="alert">${esc(AUTHFORM.error)}</div>` : ''; }
+
+VIEWS.login = () => authShell(`<form class="card" data-submit="doLogin" novalidate>
+    <h2 style="margin-top:0">Log ind</h2>
+    <label class="f"><span>E-mail</span><input class="in" id="li-email" type="email" autocomplete="username" inputmode="email" autocapitalize="off" required></label>
+    <label class="f"><span>Password</span><input class="in" id="li-pw" type="password" autocomplete="current-password" required></label>
+    ${authError()}
+    <button class="btn pri block" type="submit" ${AUTHFORM.busy ? 'disabled' : ''}>${AUTHFORM.busy ? 'Logger ind…' : 'Log ind'}</button>
+  </form>
+  <div class="card small muted">Du får en konto ved at blive inviteret af din træner.
+    <button class="btn ghost block mt" data-a="toInvite">Har du en invitationskode?</button></div>`);
+
+// Token from a pasted invite link or the bare code
+function inviteTokenFrom(s) {
+  const m = String(s || '').trim().match(/(?:\/invite\/)?([A-Za-z0-9_-]{20,})\s*$/);
+  return m ? m[1] : '';
+}
+VIEWS.invite = () => {
+  const fromLink = inviteTokenFrom(ROUTE[1]);
+  return authShell(`<form class="card" data-submit="doInvite" novalidate>
+    <h2 style="margin-top:0">Aktivér din konto</h2>
+    <p class="small muted" style="margin-top:0">Vælg det password, du vil logge ind med. Det skal være mindst 10 tegn.</p>
+    ${fromLink ? `<input type="hidden" id="iv-token" value="${esc(fromLink)}">`
+      : `<label class="f"><span>Invitationskode (eller hele linket)</span><input class="in" id="iv-token" autocapitalize="off" autocomplete="off" spellcheck="false" required></label>`}
+    <label class="f"><span>Nyt password</span><input class="in" id="iv-pw" type="password" autocomplete="new-password" minlength="10" required></label>
+    <label class="f"><span>Gentag password</span><input class="in" id="iv-pw2" type="password" autocomplete="new-password" minlength="10" required></label>
+    ${authError()}
+    <button class="btn pri block" type="submit" ${AUTHFORM.busy ? 'disabled' : ''}>${AUTHFORM.busy ? 'Aktiverer…' : 'Aktivér konto'}</button>
+  </form>
+  <button class="btn ghost block" data-a="toLogin">Jeg har allerede en konto</button>`);
+};
+
+function accountCard() {
+  const p = AUTH.profile;
+  if (!p) return '';
+  return `<h2>Konto</h2><div class="card"><div class="row"><div class="grow"><b>${esc(p.display_name)}</b>
+    <div class="small muted">${esc(p.email)} · ${ROLE_NAMES[p.role] || esc(p.role)}</div></div></div>
+    <button class="btn ghost block mt" data-a="logout">Log ud</button></div>`;
+}
+
 VIEWS.settings = () => {
   const st = S.settings, sw = (k, n, d) => `<div class="toggle"><span>${n}${d ? `<div class="xs muted">${d}</div>` : ''}</span><div class="sw ${st[k] ? 'on' : ''}" data-a="setToggle" data-k="${k}"></div></div>`;
-  let h = topbar('Mere');
+  let h = topbar('Mere') + accountCard();
   const standalone = matchMedia('(display-mode: standalone)').matches;
   if (!standalone && !PLATFORM.native) h += `<div class="card hero"><b>Installer som app</b><p class="small muted">Få StålKrop på startskærmen i fuld skærm – virker også offline.</p>
     ${DEFER ? `<button class="btn pri block" data-a="install">Installer app</button>` : `<p class="small">Chrome: menu <b>⋮</b> → <b>Installer app</b> / <b>Føj til startskærm</b>.<br>Samsung Internet: menu <b>≡</b> → <b>Tilføj side til</b> → <b>Startskærm</b>.</p>`}</div>`;
@@ -1019,6 +1072,41 @@ const A = {
     PLATFORM.saveTextFile(name, JSON.stringify(Object.assign({}, S, { active: null }), null, 1), 'application/json')
       .catch(() => toast('Kunne ikke eksportere backup'));
   },
+  // Login
+  toInvite() { AUTHFORM = { busy: false, error: '' }; go('#/invite'); },
+  toLogin() { AUTHFORM = { busy: false, error: '' }; go('#/login'); },
+  async doLogin() {
+    const email = $('#li-email').value, pw = $('#li-pw').value;
+    if (!email.trim() || !pw) { AUTHFORM.error = 'Udfyld e-mail og password'; return render(); }
+    AUTHFORM = { busy: true, error: '' }; render();
+    try {
+      const p = await AUTH.login(email, pw);
+      AUTHFORM = { busy: false, error: '' }; toast('Velkommen, ' + p.display_name); go('#/');
+    } catch (e) {
+      AUTHFORM = { busy: false, error: e.message }; render();
+      const el = $('#li-email'); if (el) el.value = email;
+    }
+  },
+  async doInvite() {
+    const raw = $('#iv-token').value, token = inviteTokenFrom(raw), pw = $('#iv-pw').value, pw2 = $('#iv-pw2').value;
+    // render() rebuilds the form, so a typed code is put back (passwords are deliberately not)
+    const keep = () => { const el = $('#iv-token'); if (el && el.type !== 'hidden') el.value = raw; };
+    if (!token) { AUTHFORM.error = 'Indsæt invitationskoden eller linket'; render(); return keep(); }
+    if (pw.length < 10) { AUTHFORM.error = 'Passwordet skal være mindst 10 tegn'; render(); return keep(); }
+    if (pw !== pw2) { AUTHFORM.error = 'De to passwords er ikke ens'; render(); return keep(); }
+    AUTHFORM = { busy: true, error: '' }; render();
+    try {
+      const p = await AUTH.acceptInvite(token, pw);
+      AUTHFORM = { busy: false, error: '' }; toast('Velkommen, ' + p.display_name); go('#/');
+    } catch (e) {
+      AUTHFORM = { busy: false, error: e.message }; render(); keep();
+    }
+  },
+  async logout() {
+    // Training data is still only on this phone (sync comes later), so logging out does not delete it
+    if (!confirm('Log ud? Dine træningsdata bliver liggende på telefonen.')) return;
+    await AUTH.logout(); AUTHFORM = { busy: false, error: '' }; go('#/login');
+  },
   reset() { if (confirm('Slet ALLE programmer, logs og indstillinger på denne enhed?') && confirm('Er du helt sikker? Det kan ikke fortrydes.')) { S = defaults(); save(); go('#/'); } },
 };
 
@@ -1082,6 +1170,13 @@ document.addEventListener('click', e => {
   const a = PLATFORM.native && e.target.closest('a[target=_blank]');
   if (a && /^https?:/.test(a.href)) { e.preventDefault(); PLATFORM.openExternal(a.href); }
 });
+// Forms (login): submit via the button or the keyboard's Go key
+document.addEventListener('submit', e => {
+  const f = e.target.closest('form[data-submit]');
+  if (!f) return;
+  e.preventDefault();
+  if (!AUTHFORM.busy && A[f.dataset.submit]) A[f.dataset.submit](f, e);
+});
 document.addEventListener('change', e => { const el = e.target.closest('[data-c]'); if (el && C[el.dataset.c]) C[el.dataset.c](el); });
 document.addEventListener('input', e => { const el = e.target.closest('[data-in]'); if (el && IN[el.dataset.in]) IN[el.dataset.in](el); });
 // Vælg hele indholdet ved fokus i talfelter – hurtigere at rette på telefonen
@@ -1094,5 +1189,17 @@ setInterval(() => { if ((ROUTE[0] || '') === 'workout' && !SHEET && !document.ac
 if (!PLATFORM.native && 'serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
   navigator.serviceWorker.register('sw.js').catch(() => { });
 }
+// Invite links (App Links) open the activation screen with the token filled in
+PLATFORM.onDeepLink(url => {
+  const token = inviteTokenFrom((url.match(/\/invite\/([^?#]+)/) || [])[1]);
+  if (!token) return;
+  if (AUTH.loggedIn()) { toast('Du er allerede logget ind – log ud for at bruge invitationen'); return; }
+  AUTHFORM = { busy: false, error: '' }; go('#/invite/' + encodeURIComponent(token));
+});
+// A session that has been revoked on the server (logged out elsewhere, account disabled) ends here
+AUTH.onChange(p => { if (!p && AUTH.required) render(true); });
+AUTH.verify();
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') AUTH.verify(); });
+
 if (S.active) wake();
 render(true);

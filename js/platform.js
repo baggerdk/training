@@ -9,6 +9,7 @@ const PLATFORM = (() => {
   const plug = name => native && core ? core.registerPlugin(name) : null;
   const Haptics = plug('Haptics'), KeepAwake = plug('KeepAwake'), Notif = plug('LocalNotifications');
   const Filesystem = plug('Filesystem'), Share = plug('Share'), Browser = plug('Browser');
+  const SecureStorage = plug('SecureStorage'), App = plug('App');
 
   const REST_NOTIF_ID = 1001;
   let wakeLock = null, channelReady = null;
@@ -77,5 +78,28 @@ const PLATFORM = (() => {
     else window.open(url, '_blank', 'noopener');
   }
 
-  return { native, vibrate, keepAwake, ensureChannel, scheduleRestAlarm, cancelRestAlarm, saveTextFile, openExternal };
+  // Secrets (the refresh token): Android Keystore in the app, localStorage as a fallback in the browser.
+  // The native methods of @aparajita/capacitor-secure-storage are called directly, without its JS wrapper.
+  const SECRET_PREFIX = 'powerkrop_';
+  async function getSecret(key) {
+    if (!SecureStorage) { try { return localStorage.getItem(SECRET_PREFIX + key); } catch (e) { return null; } }
+    try { return (await SecureStorage.internalGetItem({ prefixedKey: SECRET_PREFIX + key, sync: false })).data; } catch (e) { return null; }
+  }
+  async function setSecret(key, value) {
+    if (!SecureStorage) { localStorage.setItem(SECRET_PREFIX + key, value); return; }
+    await SecureStorage.internalSetItem({ prefixedKey: SECRET_PREFIX + key, data: value, sync: false });
+  }
+  async function removeSecret(key) {
+    if (!SecureStorage) { try { localStorage.removeItem(SECRET_PREFIX + key); } catch (e) { } return; }
+    try { await SecureStorage.internalRemoveItem({ prefixedKey: SECRET_PREFIX + key, sync: false }); } catch (e) { }
+  }
+
+  // Android App Links (https://<api-host>/invite/<token>): calls cb(url) for the link that started the app and for later ones
+  function onDeepLink(cb) {
+    if (!App) return;
+    App.addListener('appUrlOpen', e => e && e.url && cb(e.url));
+    App.getLaunchUrl().then(r => r && r.url && cb(r.url)).catch(() => { });
+  }
+
+  return { native, vibrate, keepAwake, ensureChannel, scheduleRestAlarm, cancelRestAlarm, saveTextFile, openExternal, getSecret, setSecret, removeSecret, onDeepLink };
 })();
