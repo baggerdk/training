@@ -1,0 +1,14 @@
+# Build context for server/api/Dockerfile is the repo root. Allowlist: nothing goes in unless listed here
+# (keeps server/.env, CLAUDE.md, keystores, android/ and node_modules out of the image).
+*
+!server/api/package.json
+!server/api/package-lock.json
+!server/api/src
+!server/migrations
+!server/admin
+!js/data.js
+!js/ids.js
+!js/templates.js
+!js/progression.js
+!js/sync-map.js
+!img

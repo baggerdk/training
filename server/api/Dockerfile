@@ -1,15 +1,21 @@
-# Build context is server/ (so the image gets both api/ and migrations/)
+# Build context is the repo root (see server/compose.yml): the image needs the API, the migrations, the admin
+# website and the app's shared exercise/template code. /.dockerignore is an allowlist of exactly those files.
 FROM node:22-alpine
 
 ENV NODE_ENV=production \
-    MIGRATIONS_DIR=/app/migrations
+    MIGRATIONS_DIR=/app/migrations \
+    ADMIN_DIR=/app/admin \
+    SHARED_DIR=/app/shared
 WORKDIR /app/api
 
-COPY api/package.json api/package-lock.json ./
+COPY server/api/package.json server/api/package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
-COPY api/src ./src
-COPY migrations /app/migrations
+COPY server/api/src ./src
+COPY server/migrations /app/migrations
+COPY server/admin /app/admin
+COPY js/data.js js/ids.js js/templates.js js/progression.js js/sync-map.js /app/shared/js/
+COPY img /app/shared/img
 
 USER node
 EXPOSE 3000

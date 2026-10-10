@@ -40,6 +40,21 @@
     return changed;
   }
 
+  // One app program ↔ one row in `programs`. Shared with the admin website, so both write the same shape.
+  function programToRow(p, ownerId) {
+    return {
+      id: p.id, owner_id: p.owner || ownerId, name: text(p.name, 200) || 'Program',
+      template_key: text(p.tpl, 64), level: LEVELS[p.level] || null,
+      days_per_week: p.days && p.days.length >= 1 && p.days.length <= 7 ? p.days.length : null,
+      data: omit(p, ['id', 'name', 'pos', 'owner', 'author']),
+    };
+  }
+  function rowToProgram(r, me) {
+    const p = Object.assign({}, r.data, { id: r.id, name: r.name });
+    if (r.owner_id !== me || (r.created_by && r.created_by !== me)) Object.assign(p, { owner: r.owner_id, author: r.created_by });
+    return p;
+  }
+
   function stateToRows(S, me) {
     const out = new Map();
     const add = (table, key, row) => out.set(table + '|' + key, { table, row });
@@ -48,12 +63,7 @@
     for (const p of S.programs || []) {
       if (!ids.isUuid(p.id)) continue;
       programIds.add(p.id);
-      add('programs', p.id, {
-        id: p.id, owner_id: p.owner || me, name: text(p.name, 200) || 'Program',
-        template_key: text(p.tpl, 64), level: LEVELS[p.level] || null,
-        days_per_week: p.days && p.days.length >= 1 && p.days.length <= 7 ? p.days.length : null,
-        data: omit(p, ['id', 'name', 'pos', 'owner', 'author']),
-      });
+      add('programs', p.id, programToRow(p, me));
       if (p.pos) add('program_progress', p.id, { program_id: p.id, week: int(p.pos.week) || 0, day: int(p.pos.day) || 0 });
     }
 
@@ -115,8 +125,7 @@
           const old = S.programs.find(p => p.id === r.id);
           if (gone) { removeById(S.programs, r.id); if (S.activeProg === r.id) S.activeProg = null; }
           else {
-            const p = Object.assign({}, r.data, { id: r.id, name: r.name });
-            if (r.owner_id !== me || (r.created_by && r.created_by !== me)) Object.assign(p, { owner: r.owner_id, author: r.created_by });
+            const p = rowToProgram(r, me);
             if (old && old.pos) p.pos = old.pos;
             upsertById(S.programs, p);
           }
@@ -160,5 +169,5 @@
     return applied;
   }
 
-  return { TABLE_ORDER, stableStringify, ensureIds, stateToRows, applyRows, keyOf };
+  return { TABLE_ORDER, LEVELS, stableStringify, ensureIds, programToRow, rowToProgram, stateToRows, applyRows, keyOf };
 });

@@ -1,5 +1,0 @@
-# Build context is server/
-**/node_modules
-api/test
-.env
-*.log

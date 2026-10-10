@@ -14,6 +14,8 @@ export interface Config {
   authRateLimit: number;   // attempts per minute per IP on /auth/*
   android: { packageName: string; certSha256: string[] };   // for /.well-known/assetlinks.json
   apkUrl: string | null;   // download link shown on the invite page
+  adminDir: string;        // the admin website (server/admin)
+  sharedDir: string;       // where the app's js/ and img/ are (repo root in development, /app/shared in the image)
 }
 
 function required(env: NodeJS.ProcessEnv, name: string): string {
@@ -44,5 +46,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       certSha256: (env.ANDROID_CERT_SHA256 ?? '').split(',').map(s => s.trim().toUpperCase()).filter(Boolean),
     },
     apkUrl: env.APK_URL || null,
+    adminDir: env.ADMIN_DIR ?? fileURLToPath(new URL('../../admin', import.meta.url)),
+    sharedDir: env.SHARED_DIR ?? fileURLToPath(new URL('../../..', import.meta.url)),
   };
 }

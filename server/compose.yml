@@ -24,8 +24,8 @@ services:
 
   api:
     build:
-      context: .
-      dockerfile: api/Dockerfile
+      context: ..                      # repo root: the image also needs the app's shared js/ and img/
+      dockerfile: server/api/Dockerfile
     restart: unless-stopped
     depends_on:
       db:
