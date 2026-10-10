@@ -38,6 +38,7 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-https://localhost,https://baggerdk.github.io}
       INVITE_BASE_URL: ${INVITE_BASE_URL:?Sæt INVITE_BASE_URL i server/.env}
       ANDROID_CERT_SHA256: ${ANDROID_CERT_SHA256:-}
+      APK_URL: ${APK_URL:-}
 
   # Cloudflare Tunnel (remotely managed): outbound connection only. The public hostname → http://api:3000
   # mapping lives in Cloudflare. Only runs with the "tunnel" profile (COMPOSE_PROFILES=tunnel in server/.env on the server).

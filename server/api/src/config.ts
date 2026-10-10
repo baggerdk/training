@@ -13,6 +13,7 @@ export interface Config {
   port: number;
   authRateLimit: number;   // attempts per minute per IP on /auth/*
   android: { packageName: string; certSha256: string[] };   // for /.well-known/assetlinks.json
+  apkUrl: string | null;   // download link shown on the invite page
 }
 
 function required(env: NodeJS.ProcessEnv, name: string): string {
@@ -42,5 +43,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       packageName: env.ANDROID_PACKAGE ?? 'dk.powerdot.powerkrop',
       certSha256: (env.ANDROID_CERT_SHA256 ?? '').split(',').map(s => s.trim().toUpperCase()).filter(Boolean),
     },
+    apkUrl: env.APK_URL || null,
   };
 }
