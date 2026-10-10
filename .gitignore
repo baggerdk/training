@@ -15,3 +15,6 @@ server/.env
 
 # Udgivet APK (serveres af API'et på /app, ligger kun på serveren)
 server/apk/
+
+# Natlige databasedumps (ligger kun på serveren)
+server/backups/
