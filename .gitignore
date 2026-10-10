@@ -9,3 +9,6 @@ www/
 *.jks
 *.keystore
 android/keystore.properties
+
+# Backend-hemmeligheder
+server/.env
