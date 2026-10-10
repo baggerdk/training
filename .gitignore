@@ -12,3 +12,6 @@ android/keystore.properties
 
 # Backend-hemmeligheder
 server/.env
+
+# Udgivet APK (serveres af API'et på /app, ligger kun på serveren)
+server/apk/

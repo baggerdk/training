@@ -1,5 +1,5 @@
 // Service worker: gør appen tilgængelig offline. Hæv VERSION ved hver udgivelse.
-const VERSION = 'stalkrop-v1.3.0';
+const VERSION = 'stalkrop-v1.3.1';
 const CORE = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',
   'js/platform.js', 'js/config.js', 'js/auth.js', 'js/vendor/dexie.min.js', 'js/ids.js', 'js/legacy.js', 'js/store.js', 'js/sync-map.js', 'js/sync.js', 'js/data.js', 'js/templates.js', 'js/progression.js', 'js/app.js',

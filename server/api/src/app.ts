@@ -13,6 +13,7 @@ import { wellKnownRoutes } from './routes/wellknown.ts';
 import { inviteRoutes } from './routes/invite.ts';
 import { adminRoutes } from './routes/admin.ts';
 import { adminSiteRoutes } from './routes/admin-site.ts';
+import { appDistRoutes } from './routes/app-dist.ts';
 
 declare module 'fastify' {
   interface FastifyRequest { auth: AccessClaims | null }
@@ -77,5 +78,6 @@ export async function buildApp(cfg: Config, db: Db, opts: { logger?: boolean } =
   await app.register(inviteRoutes, deps);
   await app.register(adminRoutes, deps);
   await app.register(adminSiteRoutes, deps);
+  await app.register(appDistRoutes, deps);
   return app;
 }

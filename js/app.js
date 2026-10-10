@@ -921,7 +921,7 @@ VIEWS.invite = () => {
 
 // The old PWA (GitHub Pages, no account): the way over to the Android app. The app can't read this browser's
 // data (another origin), so the data travels as a backup file.
-const APK_PAGE_URL = 'https://github.com/baggerdk/training/releases/latest';
+const APK_PAGE_URL = API_BASE_URL + '/app';   // our own server: the repo is private, so no GitHub Releases
 function moveToAppCard() {
   if (AUTH.required) return '';
   return `<div class="card hero"><b>Flyt til Android-appen</b>

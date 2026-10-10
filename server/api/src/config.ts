@@ -16,6 +16,7 @@ export interface Config {
   apkUrl: string | null;   // download link shown on the invite page
   adminDir: string;        // the admin website (server/admin)
   sharedDir: string;       // where the app's js/ and img/ are (repo root in development, /app/shared in the image)
+  apkDir: string;          // the published APK and version.json (server/apk, mounted into the container)
 }
 
 function required(env: NodeJS.ProcessEnv, name: string): string {
@@ -48,5 +49,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     apkUrl: env.APK_URL || null,
     adminDir: env.ADMIN_DIR ?? fileURLToPath(new URL('../../admin', import.meta.url)),
     sharedDir: env.SHARED_DIR ?? fileURLToPath(new URL('../../..', import.meta.url)),
+    apkDir: env.APK_DIR ?? fileURLToPath(new URL('../../apk', import.meta.url)),
   };
 }
