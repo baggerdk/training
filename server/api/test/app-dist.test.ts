@@ -20,20 +20,33 @@ describe('distribution af appen fra egen server', () => {
   it('/app/version fortæller seneste version til opdateringstjekket', async () => {
     const app = await buildApp(testConfig({ APK_DIR: dir }), db, { logger: false });
     const r = await app.inject({ method: 'GET', url: '/app/version' });
-    expect(r.json()).toEqual({ versionCode: 2, versionName: '1.1', minSupportedVersionCode: 1, apkUrl: '/app/power-krop.apk' });
+    expect(r.json()).toEqual({ versionCode: 2, versionName: '1.1', minSupportedVersionCode: 1, apkUrl: '/app/power-krop-2.apk' });
     await app.close();
   });
 
   it('APK\'en hentes med Androids MIME-type og versionsnavn i filnavnet', async () => {
     const app = await buildApp(testConfig({ APK_DIR: dir }), db, { logger: false });
-    const r = await app.inject({ method: 'GET', url: '/app/power-krop.apk' });
+    const r = await app.inject({ method: 'GET', url: '/app/power-krop-2.apk' });
     expect(r.statusCode).toBe(200);
     expect(r.headers['content-type']).toBe('application/vnd.android.package-archive');
     expect(r.headers['content-disposition']).toContain('power-krop-1.1.apk');
     expect(r.rawPayload.toString()).toContain('fake-apk');
     const page = await app.inject({ method: 'GET', url: '/app' });
     expect(page.body).toContain('Hent appen (version 1.1)');
+    expect(page.body).toContain('href="/app/power-krop-2.apk"');
     expect(page.headers['content-security-policy']).toContain("default-src 'none'");
+    await app.close();
+  });
+
+  it('ny adresse pr. version: den faste og gamle adresser sender videre til den nyeste (Cloudflare-cache)', async () => {
+    const app = await buildApp(testConfig({ APK_DIR: dir }), db, { logger: false });
+    for (const url of ['/app/power-krop.apk', '/app/power-krop-1.apk']) {
+      const r = await app.inject({ method: 'GET', url });
+      expect(r.statusCode, url).toBe(302);
+      expect(r.headers.location).toBe('/app/power-krop-2.apk');
+      expect(r.headers['cache-control']).toBe('no-store');
+    }
+    expect((await app.inject({ method: 'GET', url: '/app/noget-andet.apk' })).statusCode).toBe(404);
     await app.close();
   });
 

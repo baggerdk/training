@@ -1,6 +1,8 @@
 // Distribution of the Android app from our own server (the repo is private, so GitHub Releases can't be used):
 //   GET /app                 download page with install instructions
-//   GET /app/power-krop.apk  the latest signed APK
+//   GET /app/power-krop-<versionCode>.apk  the latest signed APK (a new address per version – Cloudflare caches
+//                            .apk files by extension, so a fixed name could hand out an old version for hours)
+//   GET /app/power-krop.apk  redirect to the latest version's address
 //   GET /app/version         { versionCode, versionName, apkUrl, minSupportedVersionCode } for the update check
 // The files live in APK_DIR (server/apk on the server, mounted read-only): power-krop.apk + version.json.
 import { readFile, stat } from 'node:fs/promises';
@@ -20,22 +22,34 @@ export async function appDistRoutes(app: FastifyInstance, { cfg }: Deps) {
     try { return JSON.parse(await readFile(path.join(cfg.apkDir, 'version.json'), 'utf8')) as VersionInfo; } catch { return null; }
   }
 
+  const apkPath = (v: VersionInfo) => `/app/power-krop-${v.versionCode}.apk`;
+
   app.get('/app/version', async (_req, reply) => {
     const v = await version();
     if (!v) return reply.code(404).send({ error: 'not_found', message: 'Ingen version udgivet endnu' });
     reply.header('cache-control', 'no-cache');
-    return { versionCode: v.versionCode, versionName: v.versionName, minSupportedVersionCode: v.minSupportedVersionCode ?? 1, apkUrl: '/app/power-krop.apk' };
+    return { versionCode: v.versionCode, versionName: v.versionName, minSupportedVersionCode: v.minSupportedVersionCode ?? 1, apkUrl: apkPath(v) };
   });
 
   app.get('/app/power-krop.apk', async (_req, reply) => {
+    const v = await version();
+    if (!v) return reply.code(404).send({ error: 'not_found', message: 'Appen er ikke udgivet endnu' });
+    return reply.header('cache-control', 'no-store').redirect(apkPath(v), 302);
+  });
+
+  app.get('/app/:file', async (req, reply) => {
+    const m = /^power-krop-(\d{1,9})\.apk$/.exec((req.params as { file: string }).file);
+    const v = await version();
+    if (!m || !v) return reply.code(404).send({ error: 'not_found', message: 'Filen findes ikke' });
+    // An old version's address leads to the current one (only the latest APK is kept)
+    if (Number(m[1]) !== v.versionCode) return reply.header('cache-control', 'no-store').redirect(apkPath(v), 302);
     let size: number;
     try { size = (await stat(apkFile)).size; } catch { return reply.code(404).send({ error: 'not_found', message: 'Appen er ikke udgivet endnu' }); }
-    const v = await version();
     return reply
       .header('content-type', 'application/vnd.android.package-archive')
       .header('content-disposition', `attachment; filename="power-krop${v ? '-' + v.versionName : ''}.apk"`)
       .header('content-length', String(size))
-      .header('cache-control', 'no-cache')
+      .header('cache-control', 'public, max-age=86400')   // the address changes with every version
       .send(createReadStream(apkFile));
   });
 
@@ -52,7 +66,7 @@ export async function appDistRoutes(app: FastifyInstance, { cfg }: Deps) {
   .muted { color: #a3abbd; font-size: .9rem; } ol { padding-left: 20px; } li { margin: 6px 0; }
 </style></head><body><main><div class="logo">💪</div><h1>power-krop</h1>
 <p class="muted" style="text-align:center;margin:0">Calisthenics, powerløft og military styrke · Android</p>
-<div class="card">${v ? `<a class="btn" href="/app/power-krop.apk">Hent appen (version ${esc(v.versionName)})</a>` : '<p>Appen er ikke udgivet endnu.</p>'}</div>
+<div class="card">${v ? `<a class="btn" href="${esc(apkPath(v))}">Hent appen (version ${esc(v.versionName)})</a>` : '<p>Appen er ikke udgivet endnu.</p>'}</div>
 <div class="card"><b>Sådan installerer du den</b><ol>
   <li>Tryk <b>Hent appen</b>, og åbn filen, når den er hentet.</li>
   <li>Spørger telefonen, om din browser eller filhåndtering må installere ukendte apps, så tillad det.</li>
