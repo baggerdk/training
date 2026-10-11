@@ -114,6 +114,13 @@ const GUIDE = (() => {
       }
       if (removed) adjustments.push(`${removed} øvelse${removed === 1 ? '' : 'r'} fjernet af hensyn til ${p.limits.map(l => LIMIT_TEXT[l]).join(' og ')} – erstat dem gerne med noget skånsomt`);
     }
+    // Equipment: the answers list what's there besides floor, wall and a chair/box/bench (always assumed)
+    if (typeof EQUIPMENT !== 'undefined') {
+      const d = EQUIPMENT.describe(EQUIPMENT.adaptProgram(program, ['none', 'wall', 'box', 'bench', ...(a.equipment || [])]));
+      const lines = [...new Set(d.lines)];
+      if (lines.length) adjustments.push('Skiftet ud efter udstyr: ' + lines.join(', '));
+      if (d.removed.length) adjustments.push('Fjernet, fordi udstyret mangler: ' + d.removed.join(', '));
+    }
     const minutes = +a.session || 60;
     if (minutes <= 30) {
       for (const d of program.days) if (d.items.length > 3) d.items = d.items.slice(0, 3);

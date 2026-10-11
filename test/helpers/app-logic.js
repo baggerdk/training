@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
-const FILES = ['js/ids.js', 'js/data.js', 'js/templates.js', 'js/progression.js', 'js/guide.js'];
+const FILES = ['js/ids.js', 'js/data.js', 'js/templates.js', 'js/progression.js', 'js/equipment.js', 'js/guide.js'];
 
 export function loadAppLogic() {
   const ctx = { console, crypto: globalThis.crypto };
@@ -14,6 +14,6 @@ export function loadAppLogic() {
   ctx.uid = () => 'id' + String(++u).padStart(6, '0');
   ctx.resetIds = () => { n = 0; u = 0; };
   // const declarations aren't properties of the context, so expose them explicitly
-  vm.runInContext('Object.assign(this, { EXERCISES, TREES, TEMPLATES, LEVELS, LIFTS, PROG, GUIDE, buildProgram, targetsFor, templateTrees, treeOf, defaultAlts })', ctx);
+  vm.runInContext('Object.assign(this, { EXERCISES, TREES, TEMPLATES, LEVELS, LIFTS, PROG, GUIDE, EQUIPMENT, buildProgram, targetsFor, templateTrees, treeOf, defaultAlts })', ctx);
   return ctx;
 }

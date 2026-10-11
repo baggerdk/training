@@ -583,7 +583,7 @@ function finishWorkout() {
 function liftMain(l) { return { squat: 'back-squat', bench: 'bench', deadlift: 'deadlift', ohp: 'ohp' }[l]; }
 
 // ---------- ØVELSER ----------
-const LIB = { q: '', cat: 'all', tab: 'ex' };
+const LIB = { q: '', cat: 'all', tab: 'ex', eqOnly: true };
 VIEWS.library = () => {
   let h = topbar('Øvelser');
   h += `<div class="chips mb"><button class="chip ${LIB.tab === 'ex' ? 'on' : ''}" data-a="libTab" data-v="ex">Alle øvelser</button><button class="chip ${LIB.tab === 'trees' ? 'on' : ''}" data-a="libTab" data-v="trees">Progressioner</button></div>`;
@@ -594,14 +594,41 @@ VIEWS.library = () => {
     return h;
   }
   h += `<div class="search"><input class="in" type="search" placeholder="Søg øvelse, muskel…" data-in="libQ" value="${esc(LIB.q)}">
-    <div class="chips mt">${[['all', 'Alle']].concat(Object.entries(CATS)).concat([['mine', 'Mine']]).map(([k, n]) => `<button class="chip ${LIB.cat === k ? 'on' : ''}" data-a="libCat" data-v="${k}">${n}</button>`).join('')}</div></div>
+    <div class="chips mt">${[['all', 'Alle']].concat(Object.entries(CATS)).concat([['mine', 'Mine']]).map(([k, n]) => `<button class="chip ${LIB.cat === k ? 'on' : ''}" data-a="libCat" data-v="${k}">${n}</button>`).join('')}</div>
+    ${myEquip() ? `<div class="toggle" style="border:0;padding-bottom:0"><span class="small">Kun øvelser med mit udstyr<div class="xs muted">${esc(equipName(myEquip()))} · <a href="#/settings">skift</a></div></span><div class="sw ${LIB.eqOnly ? 'on' : ''}" data-a="libEqOnly"></div></div>` : ''}</div>
     <div class="card list" id="liblist">${libList()}</div>
     <button class="btn block" data-a="newEx">＋ Opret egen øvelse</button>`;
   return h;
 };
+// ---------- Udstyr ----------
+// S.settings.equip = the equipment the user has (keys of EQUIP); not set = everything (no filtering)
+function myEquip() { const e = S.settings.equip; return Array.isArray(e) && e.length ? e : null; }
+function equipName(eq) { const p = EQUIPMENT.presetOf(eq); return p ? p.n : 'Eget udstyr'; }
+function toggleEquip(eq, k) { const s = new Set(eq); s.has(k) ? s.delete(k) : s.add(k); s.add('none'); return [...s]; }
+// Presets as chips plus a checkbox per piece of equipment. prefix 'setupEq' (template sheet) or 'eq' (settings).
+function equipPicker(eq, prefix) {
+  const cur = EQUIPMENT.presetOf(eq);
+  return `<div class="chips wrap">${EQUIPMENT.PRESETS.map(p => `<button class="chip ${cur && cur.id === p.id ? 'on' : ''}" data-a="${prefix}Preset" data-v="${p.id}">${esc(p.n)}</button>`).join('')}</div>
+    <div class="small muted mt">${cur ? esc(cur.d) : 'Eget valg'}</div>
+    <div class="chips wrap mt">${Object.entries(EQUIP).filter(([k]) => k !== 'none').map(([k, n]) => `<button class="chip ${eq.includes(k) ? 'on' : ''}" data-a="${prefix}Toggle" data-v="${k}">${eq.includes(k) ? '✓ ' : ''}${esc(n)}</button>`).join('')}</div>`;
+}
+// What the chosen equipment changes in the template, shown before the program is created
+function setupEquipPreview() {
+  const p = buildProgram(SETUP.tpl, SETUP.days, SETUP.L, SETUP.lv);
+  const d = EQUIPMENT.describe(EQUIPMENT.adaptProgram(p, SETUP.eq));
+  if (!d.lines.length && !d.removed.length) return '<div class="hint up mt">Alle øvelser kan laves med dit udstyr.</div>';
+  const lines = [...new Set(d.lines)];
+  let h = '<div class="hint mt">';
+  if (lines.length) h += `<b>Skiftes ud:</b><br>${lines.map(esc).join('<br>')}`;
+  if (d.removed.length) h += `${lines.length ? '<br><br>' : ''}<b>Fjernes</b> (kræver udstyr, du ikke har):<br>${d.removed.map(esc).join(', ')}`;
+  const empty = p.days.filter(x => !x.items.length).length;
+  if (empty) h += `<br><br>${empty} dag${empty === 1 ? '' : 'e'} bliver tom${empty === 1 ? '' : 'me'} – vælg en anden skabelon eller mere udstyr.`;
+  return h + '</div>';
+}
 function libFilter(q, cat) {
   q = (q || '').toLowerCase();
-  return allEx().filter(e => (cat === 'all' || (cat === 'mine' ? e.custom : e.c === cat)) &&
+  const eq = LIB.eqOnly ? myEquip() : null;
+  return allEx().filter(e => (cat === 'all' || (cat === 'mine' ? e.custom : e.c === cat)) && (!eq || EQUIPMENT.canDo(e.id, eq)) &&
     (!q || (e.n + ' ' + (e.m || []).join(' ') + ' ' + CATS[e.c]).toLowerCase().includes(q)));
 }
 function libList() {
@@ -670,7 +697,8 @@ function tplSetupSheet() {
   let h = `<h2 style="margin-top:0">${esc(t.name)}</h2><p class="small muted">${esc(t.desc)}</p>
     <label class="f"><span>Dage om ugen</span></label><div class="chips">${[2, 3, 4, 5, 6].map(n => `<button class="chip ${SETUP.days === n ? 'on' : ''}" data-a="setupDays" data-v="${n}">${n} dage</button>`).join('')}</div>
     <div class="small muted mt">${t.sched[SETUP.days].map(k => esc(t.days[k].n)).join(' · ')}</div>
-    <label class="f mt2"><span>Niveau</span></label><div class="chips">${LEVELS.map((n, i) => `<button class="chip ${SETUP.L === i ? 'on' : ''}" data-a="setupLvl" data-v="${i}">${n}</button>`).join('')}</div>`;
+    <label class="f mt2"><span>Niveau</span></label><div class="chips">${LEVELS.map((n, i) => `<button class="chip ${SETUP.L === i ? 'on' : ''}" data-a="setupLvl" data-v="${i}">${n}</button>`).join('')}</div>
+    <h3 class="mt2">Hvor træner du?</h3><p class="small muted" style="margin:4px 0">Øvelser, der kræver udstyr, du ikke har, skiftes ud eller fjernes.</p>${equipPicker(SETUP.eq, 'setupEq')}${setupEquipPreview()}`;
   if (trees.length) {
     h += `<h3 class="mt2">Startpunkt i progressionerne</h3><p class="small muted" style="margin:4px 0">Justér, så det passer til hvad du kan i dag.</p>`;
     trees.forEach(k => {
@@ -998,6 +1026,7 @@ VIEWS.settings = () => {
   h += `<h2>Træning</h2><div class="card">${sw('auto', 'Automatisk progression', 'Forslag til reps/vægt ud fra seneste træning')}${sw('sound', 'Lyd ved timer')}${sw('vibrate', 'Vibration ved timer')}${sw('wake', 'Hold skærmen tændt under træning')}
     <label class="f"><span>Standardpause for nye øvelser (sek)</span><input class="in" inputmode="numeric" data-c="setNum" data-k="rest" value="${esc(st.rest)}"></label>
     <button class="btn sm" data-a="testSound">Test lyd & vibration</button></div>`;
+  h += `<h2>Mit udstyr</h2><div class="card"><p class="small muted" style="margin-top:0">Bruges, når du opretter programmer fra skabeloner, og til at filtrere øvelsesbiblioteket.</p>${equipPicker(myEquip() || EQUIPMENT.ALL, 'eq')}</div>`;
   h += `<h2>Backup</h2><div class="card"><p class="small muted" style="margin-top:0">${AUTH.loggedIn() ? "Dine data synkroniseres med din konto. En backup-fil er stadig en god ekstra sikkerhed." : "Dine data ligger kun på denne telefon. Tag en backup jævnligt."}</p>
     <div class="row"><button class="btn grow" data-a="export">Eksportér</button><label class="btn grow">Importér<input type="file" accept="application/json,.json" data-c="import" hidden></label></div>
     <button class="btn danger ghost block mt" data-a="reset">Slet alle data</button></div>`;
@@ -1088,6 +1117,9 @@ const A = {
   // Bibliotek
   libTab(el) { LIB.tab = el.dataset.v; render(); },
   libCat(el) { LIB.cat = el.dataset.v; render(); },
+  eqPreset(el) { S.settings.equip = EQUIPMENT.PRESETS.find(x => x.id === el.dataset.v).eq.slice(); save(); render(); },
+  eqToggle(el) { S.settings.equip = toggleEquip(myEquip() || EQUIPMENT.ALL, el.dataset.v); save(); render(); },
+  libEqOnly() { LIB.eqOnly = !LIB.eqOnly; render(); },
   newEx() {
     const d = { n: '', c: 'pull', type: 'reps', cues: '', video: '' };
     A.nxSave = () => {
@@ -1117,13 +1149,18 @@ const A = {
   tplSetup(el) {
     const t = TEMPLATES.find(x => x.id === el.dataset.id), L = 1, lv = {};
     templateTrees(t.id).forEach(k => lv[k] = TREES[k].lvl[L]);
-    SETUP = { tpl: t.id, days: 3, L, lv };
+    SETUP = { tpl: t.id, days: 3, L, lv, eq: (myEquip() || EQUIPMENT.ALL).slice() };
     openSheet(tplSetupSheet);
   },
   setupDays(el) { SETUP.days = +el.dataset.v; renderSheet(); },
   setupLvl(el) { SETUP.L = +el.dataset.v; for (const k in SETUP.lv) SETUP.lv[k] = TREES[k].lvl[SETUP.L]; renderSheet(); },
+  setupEqPreset(el) { SETUP.eq = EQUIPMENT.PRESETS.find(x => x.id === el.dataset.v).eq.slice(); renderSheet(); },
+  setupEqToggle(el) { SETUP.eq = toggleEquip(SETUP.eq, el.dataset.v); renderSheet(); },
   tplCreate() {
     const p = buildProgram(SETUP.tpl, SETUP.days, SETUP.L, SETUP.lv);
+    const adapted = EQUIPMENT.adaptProgram(p, SETUP.eq);
+    S.settings.equip = SETUP.eq.slice();
+    if (adapted.swapped.length || adapted.removed.length) p.desc = [p.desc, 'Tilpasset udstyr: ' + equipName(SETUP.eq) + '.'].filter(Boolean).join('\n\n');
     S.programs.push(p); if (!S.activeProg || confirm('Gør “' + p.name + '” til dit aktive program?')) S.activeProg = p.id;
     save(); closeSheet(); toast('Program oprettet'); go('#/prog/' + p.id);
   },
