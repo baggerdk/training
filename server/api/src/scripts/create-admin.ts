@@ -1,7 +1,7 @@
 // Creates the first admin and prints an invite link where the admin chooses their password.
-//   docker compose exec api node src/scripts/create-admin.ts <email> "<navn>"
+//   docker compose run --rm migrate node src/scripts/create-admin.ts <email> "<navn>"
 // Runs as powerkrop_owner through admin_bootstrap(), which the API role cannot call.
-import { loadConfig } from '../config.ts';
+import { loadOwnerConfig } from '../config.ts';
 import { ownerConnection } from '../db.ts';
 import { daysFromNow, INVITE_TTL_DAYS, newOpaqueToken, sha256 } from '../auth/tokens.ts';
 
@@ -11,7 +11,7 @@ if (!email || !name) {
   process.exit(1);
 }
 
-const cfg = loadConfig();
+const cfg = loadOwnerConfig();
 const client = ownerConnection(cfg);
 await client.connect();
 try {

@@ -11,7 +11,8 @@ export function createAppPool(cfg: Config): Db {
   return new pg.Pool({ ...cfg.db, user: 'powerkrop_app', password: cfg.appPassword, max: 10 });
 }
 
-export function ownerConnection(cfg: Config): pg.Client {
+export function ownerConnection(cfg: Pick<Config, 'db' | 'ownerPassword'>): pg.Client {
+  if (!cfg.ownerPassword) throw new Error('OWNER_PASSWORD mangler – migrationer og scripts køres med migrate-tjenesten');
   return new pg.Client({ ...cfg.db, user: 'powerkrop_owner', password: cfg.ownerPassword });
 }
 

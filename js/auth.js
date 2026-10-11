@@ -109,6 +109,8 @@ const AUTH = (() => {
     acceptInvite: async (token, password) => startSession(await call('/auth/accept-invite', { body: { token: token.trim(), password } })),
 
     async logout() {
+      // A refresh in flight would otherwise store a new, valid token after the session has been ended
+      if (refreshing) await refreshing.catch(() => {});
       const token = await PLATFORM.getSecret(REFRESH_KEY);
       if (token) { try { await call('/auth/logout', { body: { refresh: token } }); } catch (e) { } }   // best effort offline
       await endSession();

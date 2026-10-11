@@ -57,7 +57,13 @@ async function applyChange(c: Tx, me: string, t: SyncTable, op: 'upsert' | 'dele
     if (!t.softDelete) throw new RowError('invalid', `${t.name} kan ikke slettes`);
     const keys = t.pk.map((k, i) => `${k} = $${i + 1}`).join(' and ');
     const r = await c.query(`update ${t.name} set deleted_at = now() where ${keys}`, t.pk.map(k => values[k]));
-    if (!r.rowCount) throw new RowError('not_found', 'Rækken findes ikke');
+    if (!r.rowCount) {
+      // Visible but not writable (e.g. a program from the trainer) is a refusal, not a missing row:
+      // the client must keep the row, not forget it
+      const seen = await c.query(`select 1 from ${t.name} where ${keys}`, t.pk.map(k => values[k]));
+      if (seen.rowCount) throw new RowError('forbidden', 'Du har ikke rettighed til at slette denne række');
+      throw new RowError('not_found', 'Rækken findes ikke');
+    }
     return;
   }
 
@@ -99,7 +105,7 @@ export async function syncRoutes(app: FastifyInstance, { db }: Deps) {
       let applied = 0;
       const rejected: Rejected[] = [];
       for (const [index, ch] of changes.entries()) {
-        const t = SYNC_TABLES[ch.table];
+        const t = Object.hasOwn(SYNC_TABLES, ch.table) ? SYNC_TABLES[ch.table] : undefined;
         if (!t) { rejected.push({ index, table: ch.table, reason: 'unknown_table', message: 'Ukendt tabel' }); continue; }
         await c.query('savepoint change');
         try {

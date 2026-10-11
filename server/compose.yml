@@ -22,17 +22,34 @@ services:
       timeout: 5s
       retries: 5
 
-  api:
-    build:
+  # Runs the migrations as powerkrop_owner and exits. The API waits for it, so the API container never holds
+  # the owner password. Also used for scripts: docker compose run --rm migrate node src/scripts/create-admin.ts …
+  migrate:
+    build: &api-build
       context: ..                      # repo root: the image also needs the app's shared js/ and img/
       dockerfile: server/api/Dockerfile
-    restart: unless-stopped
+    image: powerkrop-api
+    restart: "no"
+    command: ["node", "src/migrate.ts"]
     depends_on:
       db:
         condition: service_healthy
     environment:
       DB_HOST: db
       OWNER_PASSWORD: ${OWNER_PASSWORD}
+      INVITE_BASE_URL: ${INVITE_BASE_URL:?Sæt INVITE_BASE_URL i server/.env}
+
+  api:
+    build: *api-build
+    image: powerkrop-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DB_HOST: db
       APP_PASSWORD: ${APP_PASSWORD}
       JWT_SECRET: ${JWT_SECRET:?Sæt JWT_SECRET i server/.env}
       CORS_ORIGINS: ${CORS_ORIGINS:-https://localhost,https://baggerdk.github.io}

@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 export interface Config {
   db: { host: string; port: number; database: string };
   appPassword: string;
-  ownerPassword: string;
+  ownerPassword: string;   // only the one-shot migrate service has it; '' in the API container
   jwtSecret: string;
   corsOrigins: string[];
   inviteBaseUrl: string;
@@ -25,6 +25,16 @@ function required(env: NodeJS.ProcessEnv, name: string): string {
   return v;
 }
 
+// What migrations and create-admin need: the database as powerkrop_owner, nothing else
+export function loadOwnerConfig(env: NodeJS.ProcessEnv = process.env) {
+  return {
+    db: { host: env.DB_HOST ?? 'db', port: Number(env.DB_PORT ?? 5432), database: env.DB_NAME ?? 'powerkrop' },
+    ownerPassword: required(env, 'OWNER_PASSWORD'),
+    migrationsDir: env.MIGRATIONS_DIR ?? fileURLToPath(new URL('../../migrations', import.meta.url)),
+    inviteBaseUrl: env.INVITE_BASE_URL ?? '',
+  };
+}
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const jwtSecret = required(env, 'JWT_SECRET');
   if (jwtSecret.length < 32) throw new Error('JWT_SECRET skal være mindst 32 tegn');
@@ -35,7 +45,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       database: env.DB_NAME ?? 'powerkrop',
     },
     appPassword: required(env, 'APP_PASSWORD'),
-    ownerPassword: required(env, 'OWNER_PASSWORD'),
+    ownerPassword: env.OWNER_PASSWORD ?? '',
     jwtSecret,
     corsOrigins: (env.CORS_ORIGINS ?? 'https://localhost').split(',').map(s => s.trim()).filter(Boolean),
     inviteBaseUrl: required(env, 'INVITE_BASE_URL'),

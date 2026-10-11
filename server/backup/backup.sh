@@ -15,19 +15,23 @@ dump() {
   stamp=$(date +%Y-%m-%d_%H%M)
   tmp="$DIR/.powerkrop_$stamp.dump.part"
   out="$DIR/powerkrop_$stamp.dump"
-  pg_dump -h db -U postgres -d powerkrop -Fc -Z 6 -f "$tmp"
+  # Explicit "|| return 1": set -e does not apply inside a function called as "dump || …" (the loop below),
+  # so without it a failed dump would still be renamed, rotate old ones away and be marked as ok
+  pg_dump -h db -U postgres -d powerkrop -Fc -Z 6 -f "$tmp" || { rm -f "$tmp"; return 1; }
   # A dump that pg_restore can't read is not a backup
-  pg_restore -l "$tmp" > /dev/null
-  mv "$tmp" "$out"
-  find "$DIR" -name 'powerkrop_*.dump' -mtime +"$KEEP" -delete
+  pg_restore -l "$tmp" > /dev/null || { rm -f "$tmp"; return 1; }
+  mv "$tmp" "$out" || return 1
+  # -mtime +N matches files older than N+1 whole days, so +(KEEP-1) keeps KEEP days of dumps
+  find "$DIR" -name 'powerkrop_*.dump' -mtime +"$((KEEP - 1))" -delete
+  find "$DIR" -name '.powerkrop_*.dump.part' -mtime +0 -delete
   date -Iseconds > "$DIR/last-ok"
   echo "$(date -Iseconds) backup ok: $(basename "$out") ($(du -h "$out" | cut -f1)), beholder $KEEP dage"
 }
 
-if [ "${1:-}" = "once" ]; then dump; exit 0; fi
+if [ "${1:-}" = "once" ]; then dump || exit 1; exit 0; fi
 
 echo "$(date -Iseconds) backup-service startet: dagligt kl. $AT, $KEEP dages rotation i $DIR"
-[ -f "$DIR/last-ok" ] || dump        # first start: make one right away
+[ -f "$DIR/last-ok" ] || dump || echo "$(date -Iseconds) BACKUP FEJLEDE" >&2   # first start: make one right away
 while true; do
   now=$(date +%s)
   next=$(date -d "$(date +%Y-%m-%d) $AT" +%s 2>/dev/null || date -D '%Y-%m-%d %H:%M' -d "$(date +%Y-%m-%d) $AT" +%s)

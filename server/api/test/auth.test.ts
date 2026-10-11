@@ -55,11 +55,21 @@ describe('refresh-token', () => {
     expect(r2.statusCode).toBe(200);
   });
 
-  it('genbrug af et roteret token logger brugeren ud overalt', async () => {
+  it('genbrug af et roteret token, hvis efterfølger er brugt, logger brugeren ud overalt', async () => {
     const login = (await post('/auth/login', { email: admin.email, password: PASSWORD })).json();
     const next = (await post('/auth/refresh', { refresh: login.refresh })).json();
+    const third = (await post('/auth/refresh', { refresh: next.refresh })).json();   // successor used
     expect((await post('/auth/refresh', { refresh: login.refresh })).statusCode).toBe(401);   // reuse
-    expect((await post('/auth/refresh', { refresh: next.refresh })).statusCode).toBe(401);    // family revoked
+    expect((await post('/auth/refresh', { refresh: third.refresh })).statusCode).toBe(401);   // family revoked
+  });
+
+  it('et tabt svar: nyt forsøg med det gamle token inden for 60 s giver et nyt token', async () => {
+    const login = (await post('/auth/login', { email: admin.email, password: PASSWORD })).json();
+    const lost = (await post('/auth/refresh', { refresh: login.refresh })).json();   // the phone never got this
+    const retry = await post('/auth/refresh', { refresh: login.refresh });
+    expect(retry.statusCode).toBe(200);
+    expect((await post('/auth/refresh', { refresh: lost.refresh })).statusCode).toBe(401);    // replaced
+    expect((await post('/auth/refresh', { refresh: retry.json().refresh })).statusCode).toBe(200);
   });
 
   it('logout tilbagekalder tokenet', async () => {

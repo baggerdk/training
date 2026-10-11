@@ -4,7 +4,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type pg from 'pg';
-import { loadConfig } from './config.ts';
+import { loadOwnerConfig } from './config.ts';
 import { ownerConnection } from './db.ts';
 
 const LOCK_ID = 7_340_201;
@@ -37,7 +37,7 @@ export async function migrate(client: pg.Client, dir: string): Promise<string[]>
 }
 
 export async function migrateFromConfig(): Promise<string[]> {
-  const cfg = loadConfig();
+  const cfg = loadOwnerConfig();
   const client = ownerConnection(cfg);
   await client.connect();
   try {

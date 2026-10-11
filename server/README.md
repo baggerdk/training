@@ -17,8 +17,8 @@ Tunnel. Det hele kører som en Docker Compose-stack i en dedikeret LXC på Proxm
 3. `git clone https://github.com/<bruger>/<repo>.git /opt/power-krop`
 4. `cd /opt/power-krop/server && cp .env.example .env`, og udfyld hemmelighederne (`openssl rand -base64 48`).
    Sæt `COMPOSE_PROFILES=tunnel` og `TUNNEL_TOKEN` for at starte tunnelen. Filen må aldrig i git.
-5. `docker compose up -d --build` – migrationerne kører automatisk, når API'et starter.
-6. Første admin: `docker compose exec api node src/scripts/create-admin.ts <email> "<navn>"`.
+5. `docker compose up -d --build` – tjenesten `migrate` kører migrationerne som `powerkrop_owner` og stopper igen; API'et starter først bagefter og har ikke owner-passwordet.
+6. Første admin: `docker compose run --rm migrate node src/scripts/create-admin.ts <email> "<navn>"`.
    Linket, der skrives ud, åbnes for at vælge password.
 
 ## Opdatering
