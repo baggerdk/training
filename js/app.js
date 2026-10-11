@@ -227,9 +227,11 @@ function buzz(p) { if (S.settings.vibrate) PLATFORM.vibrate(p); }
 function wake() { if (S.settings.wake && S.active) PLATFORM.keepAwake(true); }
 function unwake() { PLATFORM.keepAwake(false); }
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') { PLATFORM.cancelRestAlarm(); if (S.active) wake(); }
-  // In the background the JS timers stop beeping, so the app hands the end of the rest over to a system notification
-  else if (REST && !REST.fired && REST.end > Date.now()) PLATFORM.scheduleRestAlarm(REST.end, 'Pausen er slut', 'Klar til næste sæt 💪');
+  if (document.visibilityState === 'visible') { PLATFORM.cancelRestAlarm(); PLATFORM.cancelIntervalAlarms(); if (S.active) wake(); return; }
+  // In the background the JS timers stop beeping, so the app hands the end of the rest – and an interval timer's
+  // phase changes – over to system notifications
+  if (REST && !REST.fired && REST.end > Date.now()) PLATFORM.scheduleRestAlarm(REST.end, 'Pausen er slut', 'Klar til næste sæt 💪');
+  if (IT) PLATFORM.scheduleIntervalAlarms(intervalAlarms(IT, Date.now()));
 });
 
 // ---------- Beregninger ----------

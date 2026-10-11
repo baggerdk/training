@@ -56,6 +56,22 @@ const PLATFORM = (() => {
       await Notif.schedule({ notifications: [{ id: REST_NOTIF_ID, title, body, channelId: 'rest', schedule: { at: new Date(endMs), allowWhileIdle: true } }] });
     } catch (e) { }
   }
+  // Interval timers in the background: one notification per phase change (ids from INTERVAL_ID, see js/intervals.js)
+  const INTERVAL_ID = 1100, INTERVAL_MAX = 60;
+  const intervalIds = () => Array.from({ length: INTERVAL_MAX }, (_, i) => ({ id: INTERVAL_ID + i }));
+  async function scheduleIntervalAlarms(alarms) {
+    if (!alarms.length || !(await ensureChannel())) return;
+    try {
+      await Notif.cancel({ notifications: intervalIds() });
+      await Notif.schedule({ notifications: alarms.slice(0, INTERVAL_MAX).map((a, i) => ({
+        id: INTERVAL_ID + i, title: a.title, body: a.body, channelId: 'rest', schedule: { at: new Date(a.at), allowWhileIdle: true } })) });
+    } catch (e) { }
+  }
+  async function cancelIntervalAlarms() {
+    if (!Notif) return;
+    try { await Notif.cancel({ notifications: intervalIds() }); } catch (e) { }
+  }
+
   async function cancelRestAlarm() {
     if (!Notif) return;
     try { await Notif.cancel({ notifications: [{ id: REST_NOTIF_ID }] }); } catch (e) { }
@@ -114,5 +130,5 @@ const PLATFORM = (() => {
     try { const i = await App.getInfo(); return { versionCode: Number(i.build) || 0, versionName: i.version || '' }; } catch (e) { return null; }
   }
 
-  return { native, appInfo, vibrate, keepAwake, ensureChannel, scheduleRestAlarm, cancelRestAlarm, saveTextFile, openExternal, getSecret, setSecret, removeSecret, onDeepLink, onNetworkChange };
+  return { native, appInfo, vibrate, keepAwake, ensureChannel, scheduleRestAlarm, cancelRestAlarm, scheduleIntervalAlarms, cancelIntervalAlarms, saveTextFile, openExternal, getSecret, setSecret, removeSecret, onDeepLink, onNetworkChange };
 })();
