@@ -35,7 +35,9 @@ let saveTimer = null, saveChain = Promise.resolve();
 function save() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(flushSave, 150);
-  scheduleSync(3000);
+  // During a workout every logged set saves; syncing that often costs battery and CPU for nothing.
+  // The finished workout is sent right away (finishWorkout).
+  scheduleSync(S.active ? 60000 : 3000);
 }
 
 // ---------- Synkronisering ----------
@@ -45,7 +47,9 @@ const SYNC = createSync({
   api: (path, opts) => AUTH.api(path, opts),
   getState: () => S,
   userId: () => (STORE_KEY && STORE_KEY !== 'local' ? STORE_KEY : null),
-  onStateChanged: async info => { await flushSave(); if (info && info.pulled) softRender(); },
+  generation: () => STORE.generation,
+  // Must reject if S could not be saved – the engine then leaves its snapshot alone
+  onStateChanged: async info => { clearTimeout(saveTimer); await STORE.persist(S); if (info && info.pulled) softRender(); },
 });
 let syncTimer = null;
 function scheduleSync(delay) {
@@ -130,7 +134,7 @@ async function adoptLegacyData() {
   try { raw = localStorage.getItem(LEGACY_KEY); moved = localStorage.getItem(FLAG); } catch (e) { return; }
   if (!raw || moved || !(await STORE.isEmpty())) return;
   let legacy;
-  try { legacy = migrateLegacyState(JSON.parse(raw)); } catch (e) { return; }
+  try { legacy = migrateLegacyState(JSON.parse(raw)); legacy.programs = legacy.programs.map(sanitizeProgram); } catch (e) { return; }
   if (!legacy.programs.length && !legacy.logs.length && !legacy.tests.length) return;
   const who = AUTH.profile ? ' (' + AUTH.profile.display_name + ')' : '';
   const ask = STORE_KEY !== 'local';
@@ -343,7 +347,7 @@ function itTick() {
   }
   if (el < IT.pre) {
     const s = Math.ceil(IT.pre - el); secBeep(s);
-    itSetText(IT.running ? 'Gør klar' : 'Klar?', String(s), blockText(b, a), 'rest');
+    itSetText(IT.running ? 'Gør klar' : 'Klar?', String(s), esc(blockText(b, a)), 'rest');   // #it-sub is innerHTML
     return;
   }
   const t = el - IT.pre;
@@ -353,13 +357,13 @@ function itTick() {
     const left = 60 - (t % 60);
     if (IT.lastMin !== m) { IT.lastMin = m; beep(990, .35); buzz(250); }
     secBeep(Math.ceil(left));
-    itSetText(`Minut ${m + 1} / ${b.min}`, mmss(left), `${b.reps} × ${exn}`, 'work');
+    itSetText(`Minut ${m + 1} / ${esc(b.min)}`, mmss(left), `${esc(b.reps)} × ${exn}`, 'work');
   } else if (IT.kind === 'amrap') {
     const left = b.min * 60 - t;
     if (left <= 0) return itFinish(itSetText('Tiden er gået!', IT.rounds + ' runder', 'Godt kæmpet', 'work'));
     if (!IT.started) { IT.started = true; beep(990, .35); itControls(); }
     secBeep(Math.ceil(left));
-    const circ = a.circuit ? a.circuit.map(c => `${c.r} × ${esc(exName(c.ex))}`).join('<br>') : exn;
+    const circ = a.circuit ? a.circuit.map(c => `${esc(c.r)} × ${esc(exName(c.ex))}`).join('<br>') : exn;
     itSetText(`Runder: ${IT.rounds}`, mmss(left), circ, 'work');
   } else if (IT.kind === 'tabata') {
     const cyc = b.work + b.rest, k = Math.floor(t / cyc);
@@ -414,7 +418,7 @@ VIEWS.home = () => {
   if (p) {
     const pos = clampPos(p), d = p.days[pos.day];
     h += `<div class="card ${S.active ? '' : 'hero'}">
-      <div class="row between"><span class="badge">${esc(p.name)}</span><span class="small muted">Uge ${pos.week + 1}/${p.weeks}</span></div>
+      <div class="row between"><span class="badge">${esc(p.name)}</span><span class="small muted">Uge ${pos.week + 1}/${esc(p.weeks)}</span></div>
       <h2 style="margin:10px 0 2px">${esc(d.name)}</h2><div class="muted small">Dag ${pos.day + 1} af ${p.days.length}</div>
       <div class="list mt">${d.items.map(it => { const e = exById(it.ex); return `<div class="it" data-a="exInfo" data-id="${it.ex}">${thumb(e)}<div class="grow"><b>${esc(e ? e.n : it.ex)}</b><div class="small muted">${esc(itemSummary(it, pos.week, p))}</div></div></div>`; }).join('')}</div>
       ${S.active ? '' : `<button class="btn pri block mt" data-a="startNext">▶ Start træning</button>`}
@@ -611,7 +615,7 @@ const fromTrainer = p => !!(p && p.author && AUTH.profile && p.author !== AUTH.p
 VIEWS.programs = () => {
   let h = topbar('Programmer');
   const card = p => `<div class="card tap" data-a="go" data-h="#/prog/${p.id}"><div class="row between"><b>${esc(p.name)}</b>${p.id === S.activeProg ? '<span class="badge ok">Aktivt</span>' : ''}</div>
-      <div class="small muted mt">${p.days.length} dage/uge · ${p.weeks} uger · ${p.auto ? 'auto-progression' : 'manuel'}</div></div>`;
+      <div class="small muted mt">${p.days.length} dage/uge · ${esc(p.weeks)} uger · ${p.auto ? 'auto-progression' : 'manuel'}</div></div>`;
   const shared = S.programs.filter(fromTrainer), own = S.programs.filter(p => !fromTrainer(p));
   if (shared.length) h += `<h2>Fra din træner</h2>` + shared.map(card).join('');
   h += `<h2>Mine programmer</h2>`;
@@ -640,7 +644,7 @@ function tplSetupSheet() {
   }
   if (t.pl) {
     h += `<h3 class="mt2">Dine 1RM (kg)</h3><p class="small muted" style="margin:4px 0">Bruges til at beregne vægte. Gæt konservativt hvis du er i tvivl.</p><div class="kpis" style="grid-template-columns:1fr 1fr">`;
-    for (const l in LIFTS) h += `<label class="f" style="margin:4px 0"><span>${LIFTS[l]}</span><input class="in" inputmode="decimal" data-c="rm" data-k="${l}" value="${S.rm[l] || ''}"></label>`;
+    for (const l in LIFTS) h += `<label class="f" style="margin:4px 0"><span>${LIFTS[l]}</span><input class="in" inputmode="decimal" data-c="rm" data-k="${l}" value="${esc(S.rm[l] || '')}"></label>`;
     h += `</div>`;
   }
   h += `<button class="btn pri block mt2" data-a="tplCreate">Opret program</button><button class="btn ghost block mt" data-a="closeSheet">Annullér</button>`;
@@ -658,7 +662,7 @@ VIEWS.prog = () => {
   h += `<div class="card">
     <div class="toggle"><span>Aktivt program</span><div class="sw ${S.activeProg === p.id ? 'on' : ''}" data-a="progActive"></div></div>
     <div class="toggle"><span>Automatisk progression<div class="xs muted">Foreslår reps/vægt ud fra dine logs</div></span><div class="sw ${p.auto ? 'on' : ''}" data-a="progAuto"></div></div>
-    <div class="toggle"><span>Uger i cyklus</span><div class="row"><button class="ib" data-a="progWeeks" data-v="-1">−</button><b>${p.weeks}</b><button class="ib" data-a="progWeeks" data-v="1">＋</button></div></div>
+    <div class="toggle"><span>Uger i cyklus</span><div class="row"><button class="ib" data-a="progWeeks" data-v="-1">−</button><b>${esc(p.weeks)}</b><button class="ib" data-a="progWeeks" data-v="1">＋</button></div></div>
     <div class="toggle" style="border:0"><span>Næste træning</span><span class="muted small">Uge ${pos.week + 1} · ${esc(p.days[pos.day] ? p.days[pos.day].name : '')}</span></div>`;
   if (p.tpl) {
     h += `<div class="mt"><div class="small muted mb">Dage om ugen (genererer dagene på ny fra skabelonen)</div><div class="chips">${[2, 3, 4, 5, 6].map(n => `<button class="chip ${p.days.length === n ? 'on' : ''}" data-a="progRegen" data-v="${n}">${n}</button>`).join('')}</div></div>`;
@@ -688,7 +692,7 @@ function trainerProgramView(p, pos) {
   if (p.desc) h += `<p class="small muted">${esc(p.desc)}</p>`;
   h += `<div class="card">
     <div class="toggle"><span>Aktivt program</span><div class="sw ${S.activeProg === p.id ? 'on' : ''}" data-a="progActive"></div></div>
-    <div class="toggle" style="border:0"><span>Næste træning</span><span class="muted small">Uge ${pos.week + 1} af ${p.weeks} · ${esc(p.days[pos.day] ? p.days[pos.day].name : '')}</span></div></div>`;
+    <div class="toggle" style="border:0"><span>Næste træning</span><span class="muted small">Uge ${pos.week + 1} af ${esc(p.weeks)} · ${esc(p.days[pos.day] ? p.days[pos.day].name : '')}</span></div></div>`;
   p.days.forEach((d, di) => {
     h += `<div class="day"><div class="day-h"><span class="badge">${di + 1}</span><b class="grow">${esc(d.name)}</b><button class="ib" data-a="dayStart" data-d="${di}" title="Start">▶</button></div>`;
     d.items.forEach(it => {
@@ -740,16 +744,16 @@ function editSheet() {
     it.sets.forEach((s, j) => {
       const f1 = isT ? 't' : 'r', f2 = isT ? 'tMax' : 'rMax', f3 = usePct ? 'pct' : 'kg';
       h += `<div class="setrow"><b class="small">${j + 1}</b>
-        <input inputmode="numeric" data-c="edSet" data-j="${j}" data-f="${f1}" value="${s[f1] || ''}">
-        <input inputmode="numeric" data-c="edSet" data-j="${j}" data-f="${f2}" value="${s[f2] || ''}" placeholder="–">
-        <input inputmode="decimal" data-c="edSet" data-j="${j}" data-f="${f3}" value="${s[f3] || ''}" placeholder="–">
+        <input inputmode="numeric" data-c="edSet" data-j="${j}" data-f="${f1}" value="${esc(s[f1] || '')}">
+        <input inputmode="numeric" data-c="edSet" data-j="${j}" data-f="${f2}" value="${esc(s[f2] || '')}" placeholder="–">
+        <input inputmode="decimal" data-c="edSet" data-j="${j}" data-f="${f3}" value="${esc(s[f3] || '')}" placeholder="–">
         <select data-c="edSet" data-j="${j}" data-f="rpe"><option value="">–</option>${[6, 7, 8, 9, 10].map(n => `<option ${s.rpe == n && !s.amrap ? 'selected' : ''}>${n}</option>`).join('')}<option value="max" ${s.amrap ? 'selected' : ''}>Max</option></select>
-        <input inputmode="numeric" data-c="edSet" data-j="${j}" data-f="rest" value="${s.rest || ''}">
+        <input inputmode="numeric" data-c="edSet" data-j="${j}" data-f="rest" value="${esc(s.rest || '')}">
         <button class="ib" style="width:30px" data-a="edDelSet" data-j="${j}">✕</button></div>`;
     });
     h += `<button class="btn sm block" data-a="edAddSet">＋ Tilføj sæt</button>`;
   } else {
-    const b = it.block, field = (k, n) => `<label class="f"><span>${n}</span><input class="in" inputmode="numeric" data-c="edBlock" data-k="${k}" value="${b[k] == null ? '' : b[k]}"></label>`;
+    const b = it.block, field = (k, n) => `<label class="f"><span>${n}</span><input class="in" inputmode="numeric" data-c="edBlock" data-k="${k}" value="${b[k] == null ? '' : esc(b[k])}"></label>`;
     h += `<div class="kpis" style="grid-template-columns:1fr 1fr">`;
     if (kind === 'ladder') h += field('top', 'Top (reps)') + field('rounds', 'Runder') + field('rest', 'Pause mellem trin (s)') + `<label class="f"><span>Op og ned (pyramide)</span><select class="in" data-c="edBlock" data-k="down"><option value="">Nej</option><option value="1" ${b.down ? 'selected' : ''}>Ja</option></select></label>`;
     if (kind === 'emom') h += field('min', 'Minutter') + field('reps', 'Reps pr. minut');
@@ -758,7 +762,7 @@ function editSheet() {
     h += `</div>`;
     if (kind === 'amrap') {
       h += `<label class="f"><span>Runde (kredsløb)</span></label>`;
-      (it.circuit || []).forEach((c, i) => { h += `<div class="row mb"><input class="in" style="width:72px" inputmode="numeric" data-c="edCirc" data-v="${i}" value="${c.r}"><span class="grow">${esc(exName(c.ex))}</span><button class="ib" data-a="edDelCirc" data-v="${i}">✕</button></div>`; });
+      (it.circuit || []).forEach((c, i) => { h += `<div class="row mb"><input class="in" style="width:72px" inputmode="numeric" data-c="edCirc" data-v="${i}" value="${esc(c.r)}"><span class="grow">${esc(exName(c.ex))}</span><button class="ib" data-a="edDelCirc" data-v="${i}">✕</button></div>`; });
       h += `<button class="btn sm block" data-a="edAddCirc">＋ Øvelse i runden</button>`;
     }
   }
@@ -953,11 +957,11 @@ VIEWS.settings = () => {
   const standalone = matchMedia('(display-mode: standalone)').matches;
   if (!standalone && !PLATFORM.native) h += `<div class="card hero"><b>Installer som app</b><p class="small muted">Få StålKrop på startskærmen i fuld skærm – virker også offline.</p>
     ${DEFER ? `<button class="btn pri block" data-a="install">Installer app</button>` : `<p class="small">Chrome: menu <b>⋮</b> → <b>Installer app</b> / <b>Føj til startskærm</b>.<br>Samsung Internet: menu <b>≡</b> → <b>Tilføj side til</b> → <b>Startskærm</b>.</p>`}</div>`;
-  h += `<h2>1RM & træningsmax</h2><div class="card"><div class="kpis" style="grid-template-columns:1fr 1fr">${Object.entries(LIFTS).map(([k, n]) => `<label class="f" style="margin:0"><span>${n} (kg)</span><input class="in" inputmode="decimal" data-c="rm" data-k="${k}" value="${S.rm[k] || ''}"></label>`).join('')}</div>
-    <label class="f"><span>Træningsmax (% af 1RM)</span><input class="in" inputmode="numeric" data-c="setNum" data-k="tmPct" value="${st.tmPct}"></label>
-    <label class="f"><span>Vægtspring / afrunding (kg)</span><input class="in" inputmode="decimal" data-c="setNum" data-k="inc" value="${st.inc}"></label></div>`;
+  h += `<h2>1RM & træningsmax</h2><div class="card"><div class="kpis" style="grid-template-columns:1fr 1fr">${Object.entries(LIFTS).map(([k, n]) => `<label class="f" style="margin:0"><span>${n} (kg)</span><input class="in" inputmode="decimal" data-c="rm" data-k="${k}" value="${esc(S.rm[k] || '')}"></label>`).join('')}</div>
+    <label class="f"><span>Træningsmax (% af 1RM)</span><input class="in" inputmode="numeric" data-c="setNum" data-k="tmPct" value="${esc(st.tmPct)}"></label>
+    <label class="f"><span>Vægtspring / afrunding (kg)</span><input class="in" inputmode="decimal" data-c="setNum" data-k="inc" value="${esc(st.inc)}"></label></div>`;
   h += `<h2>Træning</h2><div class="card">${sw('auto', 'Automatisk progression', 'Forslag til reps/vægt ud fra seneste træning')}${sw('sound', 'Lyd ved timer')}${sw('vibrate', 'Vibration ved timer')}${sw('wake', 'Hold skærmen tændt under træning')}
-    <label class="f"><span>Standardpause for nye øvelser (sek)</span><input class="in" inputmode="numeric" data-c="setNum" data-k="rest" value="${st.rest}"></label>
+    <label class="f"><span>Standardpause for nye øvelser (sek)</span><input class="in" inputmode="numeric" data-c="setNum" data-k="rest" value="${esc(st.rest)}"></label>
     <button class="btn sm" data-a="testSound">Test lyd & vibration</button></div>`;
   h += `<h2>Backup</h2><div class="card"><p class="small muted" style="margin-top:0">${AUTH.loggedIn() ? "Dine data synkroniseres med din konto. En backup-fil er stadig en god ekstra sikkerhed." : "Dine data ligger kun på denne telefon. Tag en backup jævnligt."}</p>
     <div class="row"><button class="btn grow" data-a="export">Eksportér</button><label class="btn grow">Importér<input type="file" accept="application/json,.json" data-c="import" hidden></label></div>
@@ -1217,7 +1221,24 @@ const A = {
     if (!confirm(msg)) return;
     await AUTH.logout(); AUTHFORM = { busy: false, error: '' }; go('#/login');
   },
-  reset() { if (confirm('Slet ALLE programmer, logs og indstillinger på denne enhed?') && confirm('Er du helt sikker? Det kan ikke fortrydes.')) { S = defaults(); save(); go('#/'); } },
+  async reset() {
+    if (!AUTH.loggedIn()) {
+      if (confirm('Slet ALLE programmer, logs og indstillinger på denne enhed?') && confirm('Er du helt sikker? Det kan ikke fortrydes.')) { S = defaults(); save(); go('#/'); }
+      return;
+    }
+    // With an account an empty S would be synced as deletions of everything on the server. Only the copy on this
+    // phone is removed; the account's data is fetched again afterwards.
+    await flushSave();
+    const n = await SYNC.pending().catch(() => 0);
+    const warn = n ? `
+
+ADVARSEL: ${n} ændringer er ikke synkroniseret endnu og går tabt.` : '';
+    if (!confirm('Slet data på denne telefon? Dine data på kontoen bevares og hentes igen.' + warn)) return;
+    const id = AUTH.profile.id;
+    STORE.close(); STORE_KEY = null;
+    try { await Dexie.delete('powerkrop-' + id); } catch (e) { console.error(e); toast('Kunne ikke slette data på telefonen'); }
+    await boot(); go('#/');
+  },
 };
 
 // Input-ændringer
@@ -1255,6 +1276,7 @@ const C = {
       try {
         // Reads both old backups (format v1, 8-character ids) and new ones (v2, UUIDs)
         const d = migrateLegacyState(JSON.parse(r.result));
+        d.programs = d.programs.map(sanitizeProgram);   // a backup file is untrusted input
         if (AUTH.loggedIn()) {
           // With an account the backup is merged in: replacing would delete data on the server through sync
           const m = mergeImport(S, d), a = m.added;

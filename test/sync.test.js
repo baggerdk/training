@@ -73,7 +73,8 @@ async function device(server, name, initial) {
   await store.persist(S);
   const saves = [];
   const sync = createSync({
-    store, api: server.api, getState: () => S, userId: () => ME,
+    store, api: async (p, o) => { if (server.hook) await server.hook(p, o, () => S); return server.api(p, o); }, getState: () => S, userId: () => ME,
+    generation: () => store.generation,
     onStateChanged: async info => { saves.push(info); await store.persist(S); },
   });
   return { store, sync, dbName, get S() { return S; }, set S(v) { S = v; }, saves };
@@ -235,5 +236,68 @@ describe('programmer fra en træner', () => {
     expect(p).toMatchObject({ owner: ME, author: TRAINER, name: 'Fra træner' });
     const back = programToRow(p, ME);
     expect(back).toEqual({ id: row.id, owner_id: ME, name: row.name, template_key: 'cal', level: 'øvet', days_per_week: 1, data: row.data });
+  });
+});
+
+
+describe('fejl fundet i kodereviewet (regression)', () => {
+  let server;
+  beforeEach(() => { server = fakeServer(); });
+
+  it('en ændring lavet, mens push er i gang, går ikke tabt', async () => {
+    const a = await device(server, 'a', fixture());
+    await a.sync.run();
+    a.S.programs[0].name = 'A';
+    // The user renames the program again while the push request is on its way
+    server.hook = (path, opts, getS) => { if (path === '/sync/push') { getS().programs[0].name = 'B'; server.hook = null; } };
+    await a.sync.run();
+    expect(a.S.programs[0].name).toBe('B');
+    expect(await a.sync.pending()).toBe(1);                   // B is still waiting to be sent …
+    await a.sync.run();
+    expect(server.tables.programs.get(a.S.programs[0].id).name).toBe('B');   // … and arrives next time
+    expect(await a.sync.pending()).toBe(0);
+  });
+
+  it('en træning slettet, mens sync kører, kommer ikke tilbage', async () => {
+    const a = await device(server, 'a', fixture());
+    await a.sync.run();
+    a.S.tests.push({ id: newId(), k: 'dip', v: 30, date: Date.UTC(2026, 3, 1) });
+    const gone = a.S.logs[0].id;
+    server.hook = (path, opts, getS) => { if (path === '/sync/push') { getS().logs.splice(0, 1); server.hook = null; } };
+    await a.sync.run(); await a.sync.run();
+    expect(a.S.logs.map(l => l.id)).not.toContain(gone);
+    expect(server.tables.workout_sessions.get(gone).deleted_at).toBeTruthy();
+  });
+
+  it('skifter brugeren under en sync, skrives der intet i den nye brugers database', async () => {
+    const a = await device(server, 'a', fixture());
+    const otherName = 'dev-b-' + newId();
+    server.hook = async (path) => { if (path === '/sync/pull') { server.hook = null; a.store.close(); await a.store.open(otherName); a.S = { v: 2, programs: [], activeProg: null, logs: [], tests: [], customEx: [], videos: {}, rm: {}, settings: {}, active: null }; } };
+    await a.sync.run();
+    expect(await a.store.getMeta('cursor')).toBeNull();     // B's first sync is not skipped
+    expect((await a.store.getSynced()).size).toBe(0);
+    expect(a.S.logs).toEqual([]);
+  });
+
+  it('kan appens data ikke gemmes, opdateres snapshottet ikke (ellers bliver det til sletninger)', async () => {
+    const a = await device(server, 'a', fixture());
+    await a.sync.run();
+    const b = await device(server, 'b');
+    const failing = createSync({ store: b.store, api: server.api, getState: () => b.S, userId: () => ME, generation: () => b.store.generation,
+      onStateChanged: async () => { throw new Error('lageret er fuldt'); } });
+    const st = await failing.run();
+    expect(st.state).toBe('error');
+    expect((await b.store.getSynced()).size).toBe(0);
+  });
+
+  it('markup i et programs felter når aldrig appen', () => {
+    const { rowToProgram } = require('../js/sync-map.js');
+    const p = rowToProgram({ id: newId(), owner_id: ME, created_by: TRAINER, name: 'X', data: {
+      weeks: '<img src=x onerror=alert(1)>', days: [{ id: 'd1', name: 'Dag', items: [{ id: 'i1', ex: 'pullup', sets: [{ r: '<b>5</b>', rest: '90' }],
+        block: { kind: 'emom', min: '<svg/onload=x>', reps: 3 }, circuit: [{ ex: 'pullup', r: '<i>' }] }] }] } }, ME);
+    expect(p.weeks).toBe(4);                                 // invalid → the default
+    expect(p.days[0].items[0].sets[0]).toEqual({ rest: 90 });
+    expect(p.days[0].items[0].block).toEqual({ kind: 'emom', reps: 3 });
+    expect(p.days[0].items[0].circuit[0].r).toBe(1);
   });
 });

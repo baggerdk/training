@@ -12,11 +12,25 @@
 
   // Arrays in S whose elements have an id → one table each
   const ENTITY_TABLES = ['programs', 'logs', 'tests', 'customEx'];
+  // Workout logs and max tests are never changed in place (a change replaces the object), so their JSON is cached
+  // per object instead of re-serialising the whole training history on every save
+  const IMMUTABLE = new Set(['logs', 'tests']);
+  // = JSON.stringify({ id, i, data }) with the data's JSON already made
+  const rowJson = (id, i, dj) => '{"id":' + JSON.stringify(id) + ',"i":' + i + ',"data":' + dj + '}';
 
   function createStore(dexieOptions) {
-    let db = null;
+    let db = null, generation = 0;
     const snap = new Map();        // 'table|id' → JSON as last written, 'kv|key' → JSON
     let queue = Promise.resolve(); // persist() calls run one at a time
+    let synced = null;             // in-memory copy of the sync snapshot, loaded once per open
+    let jsonCache = new WeakMap();
+
+    function dataJson(t, data) {
+      if (!IMMUTABLE.has(t)) return JSON.stringify(data);
+      let j = jsonCache.get(data);
+      if (j === undefined) { j = JSON.stringify(data); jsonCache.set(data, j); }
+      return j;
+    }
 
     async function open(name) {
       close();
@@ -27,10 +41,14 @@
       await db.open();
     }
 
+    // Every open/close is a new generation: work started for one database never lands in another
     function close() {
       if (db) db.close();
       db = null;
+      generation++;
       snap.clear();
+      synced = null;
+      jsonCache = new WeakMap();
     }
 
     // Reads everything into a state object. Fields missing in the database keep their value from `defaults`.
@@ -40,7 +58,7 @@
       for (const t of ENTITY_TABLES) {
         const rows = (await db.table(t).toArray()).sort((a, b) => a.i - b.i);
         state[t] = rows.map(r => r.data);
-        rows.forEach(r => snap.set(t + '|' + r.id, JSON.stringify(r)));
+        rows.forEach(r => snap.set(t + '|' + r.id, rowJson(r.id, r.i, dataJson(t, r.data))));
       }
       for (const r of await db.table('kv').toArray()) {
         state[r.key] = r.value;
@@ -57,9 +75,9 @@
         changes.puts[t] = []; changes.dels[t] = [];
         (state[t] || []).forEach((data, i) => {
           if (!data || data.id == null) return;
-          const key = t + '|' + data.id, row = { id: data.id, i, data }, json = JSON.stringify(row);
+          const key = t + '|' + data.id, json = rowJson(data.id, i, dataJson(t, data));
           seen.add(key);
-          if (snap.get(key) !== json) { changes.puts[t].push(row); changes.next.set(key, json); }
+          if (snap.get(key) !== json) { changes.puts[t].push({ id: data.id, i, data }); changes.next.set(key, json); }
         });
       }
       for (const k of Object.keys(state)) {
@@ -77,10 +95,13 @@
     }
 
     // Writes the changes in one transaction. Resolves with the number of rows written/deleted.
+    // Bound to the database that is open when persist() is called: a save still queued when another user's
+    // database is opened must never write into it.
     function persist(state) {
+      const target = db, gen = generation;
       // A failed write must not block later ones, so the queue continues after errors
       queue = queue.catch(() => {}).then(async () => {
-        if (!db) throw new Error('Databasen er ikke åben');
+        if (!db || db !== target || gen !== generation) throw new Error('Databasen er ikke åben');
         const c = diff(state);
         const count = c.next.size + c.kvDel.length + ENTITY_TABLES.reduce((n, t) => n + c.dels[t].length, 0);
         if (!count) return 0;
@@ -106,19 +127,30 @@
     }
 
     // ---- Sync bookkeeping (used by js/sync.js; never part of S)
+    // The returned Map is shared and must be treated as read-only; updateSynced() keeps it in step
     async function getSynced() {
-      return new Map((await db.table('synced').toArray()).map(r => [r.key, r.json]));
+      if (synced) return synced;
+      const gen = generation, rows = await db.table('synced').toArray();
+      const m = new Map(rows.map(r => [r.key, r.json]));
+      if (gen === generation) synced = m;
+      return m;
     }
     async function updateSynced(puts, dels) {
-      await db.transaction('rw', 'synced', async () => {
-        if (puts.length) await db.table('synced').bulkPut(puts.map(([key, json]) => ({ key, json })));
-        if (dels.length) await db.table('synced').bulkDelete(dels);
+      const target = db, gen = generation;
+      if (!target) throw new Error('Databasen er ikke åben');
+      await target.transaction('rw', 'synced', async () => {
+        if (puts.length) await target.table('synced').bulkPut(puts.map(([key, json]) => ({ key, json })));
+        if (dels.length) await target.table('synced').bulkDelete(dels);
       });
+      if (synced && gen === generation) { puts.forEach(([k, j]) => synced.set(k, j)); dels.forEach(k => synced.delete(k)); }
     }
     async function getMeta(key) { const r = await db.table('meta').get(key); return r ? r.value : null; }
     async function setMeta(key, value) { await db.table('meta').put({ key, value }); }
 
-    return { open, close, load, persist, isEmpty, getSynced, updateSynced, getMeta, setMeta, get isOpen() { return !!db; } };
+    return {
+      open, close, load, persist, isEmpty, getSynced, updateSynced, getMeta, setMeta,
+      get isOpen() { return !!db; }, get generation() { return generation; },
+    };
   }
 
   return { createStore, ENTITY_TABLES };

@@ -34,8 +34,11 @@ describe('lokal lagring i IndexedDB', () => {
     const s = fixture();
     expect(await store.persist(s)).toBeGreaterThan(10);
     expect(await store.persist(s)).toBe(0);                     // nothing changed
-    s.logs[1].items[0].sets[0].kg = 102.5;
+    // Logs are immutable by convention (the app replaces a log, never edits it in place)
+    const l = JSON.parse(JSON.stringify(s.logs[1])); l.items[0].sets[0].kg = 102.5; s.logs[1] = l;
     expect(await store.persist(s)).toBe(1);                     // exactly one row
+    s.programs[0].name = 'Omdøbt';                           // programs are edited in place and still detected
+    expect(await store.persist(s)).toBe(1);
     s.settings.rest = 90;
     expect(await store.persist(s)).toBe(1);
     expect((await reopen(store)).logs[1].items[0].sets[0].kg).toBe(102.5);

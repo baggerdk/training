@@ -100,7 +100,7 @@ function renderBuilder() {
   h += `<div class="builder mt2"><div class="side">
     <div class="card"><h3>Program</h3>
       <label class="f"><span>Navn</span><input class="in" data-c="pf" data-k="name" value="${esc(p.name)}"></label>
-      <div class="grid2" style="gap:10px"><label class="f"><span>Uger pr. cyklus</span><input class="in" type="number" min="1" max="16" data-c="pf" data-k="weeks" value="${p.weeks}"></label>
+      <div class="grid2" style="gap:10px"><label class="f"><span>Uger pr. cyklus</span><input class="in" type="number" min="1" max="16" data-c="pf" data-k="weeks" value="${esc(p.weeks)}"></label>
       <label class="f"><span>Niveau</span><select class="in" data-c="pf" data-k="level">${LEVELS.map((n, i) => `<option value="${i}" ${p.level === i ? 'selected' : ''}>${n}</option>`).join('')}</select></label></div>
       <label class="f"><span>Beskrivelse</span><textarea class="in" data-c="pf" data-k="desc">${esc(p.desc || '')}</textarea></label>
       <label class="row small"><input type="checkbox" data-c="pf" data-k="auto" ${p.auto !== false ? 'checked' : ''}> Automatisk progression i appen</label>
@@ -127,7 +127,7 @@ function renderItem(it, di, ii) {
     <button class="btn sm ghost" data-a="itUp" ${at} ${ii ? '' : 'disabled'}>↑</button>
     <button class="btn sm ghost danger" data-a="itDel" ${at}>✕</button></div>`;
   if (it.block) {
-    const b = it.block, f = (k, label) => `<label class="small">${label} <input class="in num" type="number" data-c="itBlock" data-k="${k}" ${at} value="${b[k] ?? ''}"></label>`;
+    const b = it.block, f = (k, label) => `<label class="small">${label} <input class="in num" type="number" data-c="itBlock" data-k="${k}" ${at} value="${esc(b[k])}"></label>`;
     h += `<div class="row wrap mt">`;
     if (b.kind === 'ladder') h += f('top', 'Top') + f('rounds', 'Runder') + f('rest', 'Pause (s)') + `<label class="small"><input type="checkbox" data-c="itBlockDown" ${at} ${b.down ? 'checked' : ''}> og ned igen (pyramide)</label>`;
     if (b.kind === 'emom') h += f('min', 'Minutter') + f('reps', 'Reps pr. minut');
@@ -136,7 +136,7 @@ function renderItem(it, di, ii) {
     h += `</div>`;
     if (b.kind === 'amrap') {
       h += `<div class="small muted mt">Runde:</div>` + (it.circuit || []).map((c, ci) => `<div class="row mt"><span class="grow">${esc(exName(c.ex))}</span>
-        <input class="in num" type="number" min="1" data-c="itCirc" data-ci="${ci}" ${at} value="${c.r}"> reps
+        <input class="in num" type="number" min="1" data-c="itCirc" data-ci="${ci}" ${at} value="${esc(c.r)}"> reps
         <button class="btn sm ghost danger" data-a="circDel" data-ci="${ci}" ${at}>✕</button></div>`).join('') +
         `<button class="btn sm mt" data-a="circAdd" ${at}>＋ Øvelse i runden</button>`;
     }
@@ -146,8 +146,8 @@ function renderItem(it, di, ii) {
       ${ex.type === 'weight' ? `<label>%-løft <select class="in" style="width:auto" data-c="itLift" ${at}><option value="">Ingen (kg)</option>${lifts.map(([k, n]) => `<option value="${k}" ${it.lift === k ? 'selected' : ''}>${n}</option>`).join('')}</select></label>` : ''}</div>`;
     const cols = it.lift ? [['pct', '%TM'], ['r', 'Reps']] : ex.type === 'time' ? [['t', 'Sek'], ['tMax', 'Til'], ['kg', 'Kg']] : [['r', 'Reps'], ['rMax', 'Til'], ['kg', 'Kg'], ['rpe', 'RPE']];
     h += `<table class="sets"><tr><th></th>${cols.map(c => `<th>${c[1]}</th>`).join('')}<th>Pause</th><th>AMRAP</th><th></th></tr>` +
-      it.sets.map((s, j) => `<tr><td class="i">${j + 1}</td>${cols.map(([k]) => `<td><input class="in num" inputmode="decimal" data-c="itSet" data-k="${k}" data-j="${j}" ${at} value="${s[k] ?? ''}"></td>`).join('')}
-        <td><input class="in num" inputmode="numeric" data-c="itSet" data-k="rest" data-j="${j}" ${at} value="${s.rest ?? ''}"></td>
+      it.sets.map((s, j) => `<tr><td class="i">${j + 1}</td>${cols.map(([k]) => `<td><input class="in num" inputmode="decimal" data-c="itSet" data-k="${k}" data-j="${j}" ${at} value="${esc(s[k])}"></td>`).join('')}
+        <td><input class="in num" inputmode="numeric" data-c="itSet" data-k="rest" data-j="${j}" ${at} value="${esc(s.rest)}"></td>
         <td style="text-align:center"><input type="checkbox" data-c="itAmrap" data-j="${j}" ${at} ${s.amrap ? 'checked' : ''}></td>
         <td><button class="btn sm ghost danger" data-a="setDel" data-j="${j}" ${at}>✕</button></td></tr>`).join('') + `</table>
       <button class="btn sm mt" data-a="setAdd" ${at}>＋ Sæt</button>`;

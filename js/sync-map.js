@@ -32,12 +32,68 @@
   }
 
   // Every logged set needs a stable id for its set_logs row. Returns true if S was changed (then save it).
+  // A log that gets ids is replaced by a new object: logs are treated as immutable (js/store.js caches their JSON).
   function ensureIds(S) {
     let changed = false;
-    for (const l of S.logs || []) for (const it of l.items || []) for (const s of it.sets || []) {
-      if (!s.sid) { s.sid = ids.newId(); changed = true; }
-    }
+    (S.logs || []).forEach((l, i) => {
+      if (!(l.items || []).some(it => (it.sets || []).some(s => !s.sid))) return;
+      S.logs[i] = Object.assign({}, l, { items: l.items.map(it => Object.assign({}, it, {
+        sets: (it.sets || []).map(s => (s.sid ? s : Object.assign({}, s, { sid: ids.newId() }))),
+      })) });
+      changed = true;
+    });
     return changed;
+  }
+
+  // A program from the server or a backup file is someone else's data: keep only the fields the app knows,
+  // with the expected types, so nothing unexpected (e.g. markup in a number field) reaches the UI.
+  const numOrUndef = v => (typeof v === 'number' && isFinite(v) ? v : (typeof v === 'string' && v.trim() !== '' && isFinite(+v) ? +v : undefined));
+  const EX_ID = /^[A-Za-z0-9_-]{1,64}$/;
+  const SET_NUMS = ['r', 'rMax', 't', 'tMax', 'kg', 'pct', 'rpe', 'rest'];
+  const BLOCK_NUMS = ['top', 'rounds', 'rest', 'min', 'reps', 'work'];
+  const BLOCK_KINDS = ['ladder', 'emom', 'amrap', 'tabata'];
+  // Only fields that are present are touched, so valid data passes through unchanged (sync stays lossless)
+  const fixNum = (o, k) => { if (k in o && o[k] !== null) { const v = numOrUndef(o[k]); if (v === undefined) delete o[k]; else o[k] = v; } };
+  const fixStr = (o, k, max) => { if (k in o && o[k] !== null) { if (typeof o[k] === 'string') o[k] = o[k].slice(0, max); else delete o[k]; } };
+  const fixBool = (o, k) => { if (k in o) o[k] = !!o[k]; };
+  function sanitizeItem(src) {
+    const it = Object.assign({}, src);
+    fixStr(it, 'id', 64);
+    // Exercise ids are a fixed format (kebab-case or my-<uid>); anything else could carry markup into the UI
+    if ('ex' in it && !EX_ID.test(it.ex)) it.ex = '';
+    fixStr(it, 'wave', 16); fixStr(it, 'lift', 16); fixStr(it, 'note', 1000);
+    if ('alts' in it) it.alts = Array.isArray(it.alts) ? it.alts.filter(x => EX_ID.test(x)) : [];
+    if ('sets' in it) it.sets = (Array.isArray(it.sets) ? it.sets : []).filter(x => x && typeof x === 'object').map(x => {
+      const o = Object.assign({}, x); SET_NUMS.forEach(k => fixNum(o, k)); fixBool(o, 'amrap'); fixBool(o, 'deload'); return o;
+    });
+    if ('block' in it && it.block !== null) {
+      if (it.block && typeof it.block === 'object' && BLOCK_KINDS.includes(it.block.kind)) {
+        const b = Object.assign({}, it.block); BLOCK_NUMS.forEach(k => fixNum(b, k)); fixBool(b, 'down'); it.block = b;
+      } else delete it.block;
+    }
+    if ('circuit' in it && it.circuit !== null) {
+      it.circuit = Array.isArray(it.circuit) ? it.circuit.filter(c => c && typeof c === 'object')
+        .map(c => ({ ex: EX_ID.test(c.ex) ? c.ex : '', r: numOrUndef(c.r) || 1 })) : undefined;
+      if (!it.circuit) delete it.circuit;
+    }
+    return it;
+  }
+  function sanitizeProgram(src) {
+    const p = Object.assign({}, src);
+    fixStr(p, 'name', 200); if (!p.name) p.name = 'Program';
+    fixStr(p, 'tpl', 64); fixStr(p, 'desc', 4000);
+    if ('weeks' in p) p.weeks = Math.max(1, Math.min(52, Math.round(numOrUndef(p.weeks) || 4)));
+    fixNum(p, 'created'); fixBool(p, 'auto');
+    if ('level' in p && ![0, 1, 2].includes(p.level)) p.level = 0;
+    if ('treeLvls' in p) p.treeLvls = p.treeLvls && typeof p.treeLvls === 'object'
+      ? Object.fromEntries(Object.entries(p.treeLvls).map(([k, v]) => [String(k).slice(0, 32), Math.round(numOrUndef(v) || 0)])) : {};
+    p.days = (Array.isArray(p.days) ? p.days : []).filter(d => d && typeof d === 'object').map(d => {
+      const o = Object.assign({}, d); fixStr(o, 'id', 64); fixStr(o, 'name', 200);
+      o.items = (Array.isArray(d.items) ? d.items : []).filter(x => x && typeof x === 'object').map(sanitizeItem);
+      return o;
+    });
+    if (p.pos && typeof p.pos === 'object') p.pos = { week: Math.max(0, Math.round(numOrUndef(p.pos.week) || 0)), day: Math.max(0, Math.round(numOrUndef(p.pos.day) || 0)) };
+    return p;
   }
 
   // One app program ↔ one row in `programs`. Shared with the admin website, so both write the same shape.
@@ -50,7 +106,7 @@
     };
   }
   function rowToProgram(r, me) {
-    const p = Object.assign({}, r.data, { id: r.id, name: r.name });
+    const p = sanitizeProgram(Object.assign({}, r.data, { id: r.id, name: r.name }));
     if (r.owner_id !== me || (r.created_by && r.created_by !== me)) Object.assign(p, { owner: r.owner_id, author: r.created_by });
     return p;
   }
@@ -106,43 +162,56 @@
     user_settings: 'me', custom_exercises: r.exercise_id,
   }[table] || r.id);
 
-  function upsertById(list, entity) {
-    const i = list.findIndex(x => x.id === entity.id);
-    if (i >= 0) list[i] = entity; else list.push(entity);
+  // An id → entity index over a list, applied back in one go (avoids a linear search per pulled row)
+  function indexed(list) {
+    const m = new Map(list.map(x => [x.id, x]));
+    let dirty = false;
+    return {
+      get: id => m.get(id),
+      put: e => { m.set(e.id, e); dirty = true; },
+      del: id => { dirty = m.delete(id) || dirty; },
+      apply: target => { if (dirty) { target.length = 0; for (const v of m.values()) target.push(v); } },
+    };
   }
-  const removeById = (list, id) => { const i = list.findIndex(x => x.id === id); if (i >= 0) list.splice(i, 1); };
+  const setKeys = log => ((log && log.items) || []).flatMap(it => (it.sets || []).filter(s => s.sid).map(s => 'set_logs|' + s.sid));
 
   // Applies /sync/pull changes to S. Returns the keys that were applied (or removed), so the engine can mark
   // them as "the server has this". Programs written for other users (a trainer's own device) are left out for now.
+  // A workout's sets are acknowledged together with the workout (the set_logs rows are derived from it).
   function applyRows(S, changes, me) {
     const applied = [];
     const done = (table, r) => applied.push(keyOf(table, r));
+    const programs = indexed(S.programs), logs = indexed(S.logs), tests = indexed(S.tests), custom = indexed(S.customEx);
     for (const table of TABLE_ORDER) for (const r of (changes[table] || [])) {
       const gone = !!r.deleted_at;
       switch (table) {
         case 'programs': {
           if (r.owner_id !== me) continue;
-          const old = S.programs.find(p => p.id === r.id);
-          if (gone) { removeById(S.programs, r.id); if (S.activeProg === r.id) S.activeProg = null; }
+          const old = programs.get(r.id);
+          if (gone) { programs.del(r.id); if (S.activeProg === r.id) S.activeProg = null; }
           else {
             const p = rowToProgram(r, me);
             if (old && old.pos) p.pos = old.pos;
-            upsertById(S.programs, p);
+            programs.put(p);
           }
           break;
         }
         case 'program_progress': {
-          const p = S.programs.find(x => x.id === r.program_id);
+          const p = programs.get(r.program_id);
           if (!p) continue;
-          if (gone) delete p.pos; else p.pos = { week: r.week, day: r.day };
+          const np = Object.assign({}, p);
+          if (gone) delete np.pos; else np.pos = { week: r.week, day: r.day };
+          programs.put(np);
           break;
         }
-        case 'workout_sessions':
-          if (gone) removeById(S.logs, r.id);
-          else upsertById(S.logs, Object.assign({}, r.data, { id: r.id, progId: r.program_id }));
+        case 'workout_sessions': {
+          const old = logs.get(r.id);
+          if (gone) { applied.push(...setKeys(old)); logs.del(r.id); }
+          else { const l = Object.assign({}, r.data, { id: r.id, progId: r.program_id }); logs.put(l); applied.push(...setKeys(old), ...setKeys(l)); }
           break;
+        }
         case 'set_logs':
-          break;   // derived from the session's data; only acknowledged
+          break;   // derived from the session's data; acknowledged together with it
         case 'training_maxes':
           S.rm[r.lift_key] = gone ? 0 : (r.one_rm_kg || 0);
           break;
@@ -150,24 +219,25 @@
           if (gone) delete S.videos[r.exercise_id]; else S.videos[r.exercise_id] = r.url;
           break;
         case 'max_tests':
-          if (gone) removeById(S.tests, r.id);
-          else upsertById(S.tests, { id: r.id, k: r.test_key, v: r.value, date: ms(r.tested_at) });
+          if (gone) tests.del(r.id);
+          else tests.put({ id: r.id, k: r.test_key, v: r.value, date: ms(r.tested_at) });
           break;
         case 'user_settings':
           S.settings = Object.assign({}, S.settings, r.data && r.data.settings);
           S.activeProg = (r.data && r.data.activeProgramId) || null;
           break;
         case 'custom_exercises':
-          if (gone) removeById(S.customEx, r.exercise_id);
-          else upsertById(S.customEx, Object.assign({}, r.data, { id: r.exercise_id }));
+          if (gone) custom.del(r.exercise_id);
+          else custom.put(Object.assign({}, r.data, { id: r.exercise_id }));
           break;
       }
       done(table, r);
     }
+    programs.apply(S.programs); logs.apply(S.logs); tests.apply(S.tests); custom.apply(S.customEx);
     S.logs.sort((a, b) => (a.date || 0) - (b.date || 0));
     S.tests.sort((a, b) => (a.date || 0) - (b.date || 0));
     return applied;
   }
 
-  return { TABLE_ORDER, stableStringify, ensureIds, programToRow, rowToProgram, stateToRows, applyRows, keyOf };
+  return { TABLE_ORDER, stableStringify, ensureIds, sanitizeProgram, programToRow, rowToProgram, stateToRows, applyRows, keyOf };
 });
