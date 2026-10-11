@@ -108,5 +108,11 @@ const PLATFORM = (() => {
     window.addEventListener('offline', () => cb(false));
   }
 
-  return { native, vibrate, keepAwake, ensureChannel, scheduleRestAlarm, cancelRestAlarm, saveTextFile, openExternal, getSecret, setSecret, removeSecret, onDeepLink, onNetworkChange };
+  // The installed app's version (Android versionCode/versionName); null in the browser
+  async function appInfo() {
+    if (!App) return null;
+    try { const i = await App.getInfo(); return { versionCode: Number(i.build) || 0, versionName: i.version || '' }; } catch (e) { return null; }
+  }
+
+  return { native, appInfo, vibrate, keepAwake, ensureChannel, scheduleRestAlarm, cancelRestAlarm, saveTextFile, openExternal, getSecret, setSecret, removeSecret, onDeepLink, onNetworkChange };
 })();

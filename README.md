@@ -1,4 +1,4 @@
-# StålKrop – Calisthenics, Powerløft & Military Styrke
+# power-krop – Calisthenics, Powerløft & Military Styrke
 
 Web-app (PWA) til Android, der kan installeres på hjemmeskærmen og virker offline. Den er bygget til Samsung Galaxy S24 Ultra, men kører i alle moderne browsere.
 

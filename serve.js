@@ -6,4 +6,4 @@ http.createServer((req, res) => {
   const f = path.join(__dirname, p);
   if (!f.startsWith(__dirname)) { res.writeHead(403); return res.end(); }
   fs.readFile(f, (err, d) => { if (err) { res.writeHead(404); return res.end('404'); } res.writeHead(200, { 'Content-Type': T[path.extname(f)] || 'application/octet-stream', 'Cache-Control': 'no-cache' }); res.end(d); });
-}).listen(process.env.PORT || 8080, () => console.log('StålKrop kører på http://localhost:' + (process.env.PORT || 8080)));
+}).listen(process.env.PORT || 8080, () => console.log('power-krop kører på http://localhost:' + (process.env.PORT || 8080)));

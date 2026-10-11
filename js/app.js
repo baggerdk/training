@@ -1,4 +1,4 @@
-// StålKrop – træningsapp (PWA). Data gemmes lokalt i IndexedDB (js/store.js), én database pr. bruger.
+// power-krop – træningsapp (Android-app og PWA). Data gemmes lokalt i IndexedDB (js/store.js), én database pr. bruger.
 'use strict';
 
 const $ = s => document.querySelector(s);
@@ -53,10 +53,43 @@ const SYNC = createSync({
 });
 let syncTimer = null;
 function scheduleSync(delay) {
-  if (!STORE_KEY || STORE_KEY === 'local') return;
+  if (!STORE_KEY || STORE_KEY === 'local' || updateRequired()) return;
   clearTimeout(syncTimer);
   syncTimer = setTimeout(() => SYNC.run(), delay || 0);
 }
+// ---------- Opdateringstjek ----------
+// GET /app/version (no login), at most once an hour. A newer APK shows a card with a download link. Below
+// minSupportedVersionCode the server may no longer understand this app's data, so sync pauses – training never does.
+const UPDATE = { info: null, latest: null, checked: 0 };
+async function checkUpdate() {
+  if (!PLATFORM.native || Date.now() - UPDATE.checked < 3600e3) return;
+  UPDATE.checked = Date.now();
+  const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), 10000);
+  try {
+    if (!UPDATE.info) UPDATE.info = await PLATFORM.appInfo();
+    const r = await fetch(API_BASE_URL + '/app/version', { cache: 'no-store', signal: ctrl.signal });
+    if (!r.ok) throw new Error('http ' + r.status);
+    const v = await r.json();
+    if (typeof v.versionCode !== 'number') return;
+    const wasRequired = updateRequired();
+    UPDATE.latest = v;
+    if (wasRequired && !updateRequired()) scheduleSync(0);
+    softRender();
+  } catch (e) {
+    UPDATE.checked = Date.now() - 3300e3;   // offline: try again in 5 minutes
+  } finally { clearTimeout(timer); }
+}
+function updateAvailable() { return !!(UPDATE.info && UPDATE.latest && UPDATE.latest.versionCode > UPDATE.info.versionCode); }
+function updateRequired() { return !!(UPDATE.info && UPDATE.latest && UPDATE.info.versionCode < (UPDATE.latest.minSupportedVersionCode || 0)); }
+function updateCard() {
+  if (!updateAvailable()) return '';
+  const req = updateRequired();
+  return `<div class="card hero"><b>Ny version tilgængelig: ${esc(UPDATE.latest.versionName)}</b>
+    <p class="small muted">${req ? 'Din version er for gammel til at synkronisere. Du kan stadig træne, og dine data gemmes på telefonen, indtil du har opdateret.'
+      : 'Du har version ' + esc(UPDATE.info.versionName) + '. Dine data bevares, når du installerer den nye version oven på den gamle.'}</p>
+    <button class="btn pri block" data-a="getUpdate">Hent opdateringen</button></div>`;
+}
+
 // Re-render after pulled changes, unless the user is typing or has a sheet open
 function softRender() {
   if (SHEET || (document.activeElement && document.activeElement.matches('input,select,textarea'))) return;
@@ -409,7 +442,7 @@ const VIEWS = {};
 // ---------- HJEM ----------
 VIEWS.home = () => {
   const p = S.programs.find(x => x.id === S.activeProg);
-  let h = `<div class="top"><div class="grow"><div class="muted small">${esc(new Date().toLocaleDateString('da-DK', { weekday: 'long', day: 'numeric', month: 'long' }))}</div><h1>StålKrop</h1></div></div>`;
+  let h = `<div class="top"><div class="grow"><div class="muted small">${esc(new Date().toLocaleDateString('da-DK', { weekday: 'long', day: 'numeric', month: 'long' }))}</div><h1>power-krop</h1></div></div>` + updateCard();
   if (S.active) {
     h += `<div class="card hero"><div class="badge acc">I gang</div><h2 style="margin:8px 0 4px">${esc(S.active.name)}</h2>
       <div class="muted small">Startet ${new Date(S.active.start).toLocaleTimeString('da-DK', { hour: '2-digit', minute: '2-digit' })}</div>
@@ -893,7 +926,7 @@ function authShell(inner) {
 }
 function authError() { return AUTHFORM.error ? `<div class="hint err" role="alert">${esc(AUTHFORM.error)}</div>` : ''; }
 
-VIEWS.login = () => authShell(`<form class="card" data-submit="doLogin" novalidate>
+VIEWS.login = () => authShell(updateCard() + `<form class="card" data-submit="doLogin" novalidate>
     <h2 style="margin-top:0">Log ind</h2>
     <label class="f"><span>E-mail</span><input class="in" id="li-email" type="email" autocomplete="username" inputmode="email" autocapitalize="off" required></label>
     <label class="f"><span>Password</span><input class="in" id="li-pw" type="password" autocomplete="current-password" required></label>
@@ -953,9 +986,9 @@ function accountCard() {
 
 VIEWS.settings = () => {
   const st = S.settings, sw = (k, n, d) => `<div class="toggle"><span>${n}${d ? `<div class="xs muted">${d}</div>` : ''}</span><div class="sw ${st[k] ? 'on' : ''}" data-a="setToggle" data-k="${k}"></div></div>`;
-  let h = topbar('Mere') + accountCard() + moveToAppCard();
+  let h = topbar('Mere') + updateCard() + accountCard() + moveToAppCard();
   const standalone = matchMedia('(display-mode: standalone)').matches;
-  if (!standalone && !PLATFORM.native) h += `<div class="card hero"><b>Installer som app</b><p class="small muted">Få StålKrop på startskærmen i fuld skærm – virker også offline.</p>
+  if (!standalone && !PLATFORM.native) h += `<div class="card hero"><b>Installer som app</b><p class="small muted">Få power-krop på startskærmen i fuld skærm – virker også offline.</p>
     ${DEFER ? `<button class="btn pri block" data-a="install">Installer app</button>` : `<p class="small">Chrome: menu <b>⋮</b> → <b>Installer app</b> / <b>Føj til startskærm</b>.<br>Samsung Internet: menu <b>≡</b> → <b>Tilføj side til</b> → <b>Startskærm</b>.</p>`}</div>`;
   h += `<h2>1RM & træningsmax</h2><div class="card"><div class="kpis" style="grid-template-columns:1fr 1fr">${Object.entries(LIFTS).map(([k, n]) => `<label class="f" style="margin:0"><span>${n} (kg)</span><input class="in" inputmode="decimal" data-c="rm" data-k="${k}" value="${esc(S.rm[k] || '')}"></label>`).join('')}</div>
     <label class="f"><span>Træningsmax (% af 1RM)</span><input class="in" inputmode="numeric" data-c="setNum" data-k="tmPct" value="${esc(st.tmPct)}"></label>
@@ -966,7 +999,7 @@ VIEWS.settings = () => {
   h += `<h2>Backup</h2><div class="card"><p class="small muted" style="margin-top:0">${AUTH.loggedIn() ? "Dine data synkroniseres med din konto. En backup-fil er stadig en god ekstra sikkerhed." : "Dine data ligger kun på denne telefon. Tag en backup jævnligt."}</p>
     <div class="row"><button class="btn grow" data-a="export">Eksportér</button><label class="btn grow">Importér<input type="file" accept="application/json,.json" data-c="import" hidden></label></div>
     <button class="btn danger ghost block mt" data-a="reset">Slet alle data</button></div>`;
-  h += `<h2>Om</h2><div class="card small muted">StålKrop v1.0 · ${EXERCISES.length} øvelser · ${TEMPLATES.length} skabeloner.<br>Øvelsesbilleder fra <a href="https://github.com/yuhonas/free-exercise-db" target="_blank" rel="noopener">free-exercise-db</a> (public domain). Videoer via YouTube.</div>`;
+  h += `<h2>Om</h2><div class="card small muted">power-krop${UPDATE.info ? ' v' + esc(UPDATE.info.versionName) : ''} · ${EXERCISES.length} øvelser · ${TEMPLATES.length} skabeloner.<br>Øvelsesbilleder fra <a href="https://github.com/yuhonas/free-exercise-db" target="_blank" rel="noopener">free-exercise-db</a> (public domain). Videoer via YouTube.</div>`;
   return h;
 };
 
@@ -1210,7 +1243,8 @@ const A = {
       AUTHFORM = { busy: false, error: e.message }; render(); keep();
     }
   },
-  async syncNow() { await SYNC.run(); render(); },
+  async syncNow() { if (updateRequired()) return toast('Opdatér appen for at synkronisere'); await SYNC.run(); render(); },
+  getUpdate() { PLATFORM.openExternal(API_BASE_URL + '/app'); },
   async logout() {
     // Unsynced changes stay in this user's database on the phone and are sent at the next login
     await flushSave();
@@ -1343,6 +1377,7 @@ PLATFORM.onDeepLink(url => {
 // Login, logout and a session revoked on the server all switch to the right user's database
 AUTH.onChange(() => boot());
 AUTH.verify();
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') AUTH.verify(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { AUTH.verify(); checkUpdate(); } });
+checkUpdate();
 
 boot();
