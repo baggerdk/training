@@ -56,6 +56,7 @@ export async function appDistRoutes(app: FastifyInstance, { cfg }: Deps) {
 <div class="card"><b>Sådan installerer du den</b><ol>
   <li>Tryk <b>Hent appen</b>, og åbn filen, når den er hentet.</li>
   <li>Spørger telefonen, om din browser eller filhåndtering må installere ukendte apps, så tillad det.</li>
+  <li>Viser Google Play Protect <b>"Appen er blokeret for at beskytte din enhed"</b>, så tryk <b>Installer alligevel</b> (ikke OK). Advarslen kommer, fordi appen ikke hentes fra Google Play.</li>
   <li>Samsung: Er <b>Automatisk blokering</b> slået til (Indstillinger → Sikkerhed og privatliv), skal den slås fra under installationen.</li>
   <li>Åbn appen, og log ind med den invitation, du har fået af din træner.</li></ol>
 <p class="muted">En ny version installeres på samme måde – dine data bevares.</p></div></main></body></html>`;
