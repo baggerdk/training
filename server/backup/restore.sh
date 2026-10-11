@@ -1,12 +1,12 @@
 #!/bin/sh
 # Restores a pg_dump made by backup.sh. Run inside the backup container:
 #
-#   Test (safe, touches nothing):   docker compose exec backup /restore.sh test  [/backups/<fil>.dump]
+#   Test (safe, touches nothing):   docker compose exec backup sh /restore.sh test  [/backups/<fil>.dump]
 #     restores into a separate database `powerkrop_restoretest`, compares row counts with the live
 #     database, and drops the test database again.
 #
 #   Real restore (overwrites data):  docker compose stop api cloudflared
-#                                    docker compose exec backup /restore.sh live /backups/<fil>.dump
+#                                    docker compose exec backup sh /restore.sh live /backups/<fil>.dump
 #                                    docker compose up -d
 #     The roles (powerkrop_owner/app/definer) must exist – they do on the same server; on a new server
 #     they are created by db/init/01-roles.sh when the volume is created (same passwords from .env).

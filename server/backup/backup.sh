@@ -4,7 +4,7 @@
 #   - runs as the superuser: FORCE ROW LEVEL SECURITY would hide every row from the table owner
 #   - keeps BACKUP_KEEP_DAYS days (14), so data from "Slet min konto" is gone from backups after that
 #   - writes /backups/last-ok after each good dump; the healthcheck fails if it is more than 26 hours old
-# Run one dump right away:  docker compose exec backup /backup.sh once
+# Run one dump right away:  docker compose exec backup sh /backup.sh once
 set -eu
 
 DIR=/backups
