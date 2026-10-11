@@ -83,3 +83,9 @@ table.list tr.tap { cursor: pointer; } table.list tr.tap:hover td { background: 
 
 #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 90; background: var(--card2); border: 1px solid var(--line);
   padding: 10px 16px; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,.4); font-weight: 600; }
+
+/* Trainer insight: workouts per week */
+.weeks { display: grid; grid-template-columns: repeat(12, 1fr); gap: 6px; align-items: end; height: 150px; }
+.weeks .wk { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 4px; min-width: 0; }
+.weeks .wk i { display: block; width: 100%; max-width: 28px; min-height: 2px; border-radius: 4px 4px 0 0; background: var(--acc); }
+.weeks .wk .dim { white-space: nowrap; font-size: .62rem; }

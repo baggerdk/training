@@ -38,7 +38,12 @@ const TemplateBody = Type.Object({
   shared: Type.Optional(Type.Boolean()),
 }, { additionalProperties: false });
 
-const PROGRAM_COLS = 'id, owner_id, created_by, name, template_key, level, days_per_week, data, created_at, updated_at';
+const HistoryQuery = Type.Object({
+  before: Type.Optional(Type.String({ format: 'date-time' })),
+  limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })),
+}, { additionalProperties: false });
+
+const PROGRAM_COLS ='id, owner_id, created_by, name, template_key, level, days_per_week, data, created_at, updated_at';
 const TEMPLATE_COLS = 't.id, t.created_by, u.display_name as created_by_name, t.name, t.description, t.level, t.days_per_week, t.tags, t.data, t.shared, t.created_at, t.updated_at';
 
 async function requireStaff(c: Tx) {
@@ -84,6 +89,59 @@ export async function adminRoutes(app: FastifyInstance, { db }: Deps) {
     return tx(db, me.id, async c => {
       if (id !== me.id) await requireStaff(c);
       return (await c.query(`select ${PROGRAM_COLS} from programs where owner_id = $1 and deleted_at is null order by created_at desc`, [id])).rows;
+    });
+  });
+
+  // ---- Trainer insight (read-only: RLS lets trainers read a user's training, never write it)
+
+  // Workout history, newest first, a page at a time (?before=<started_at of the last one shown>)
+  app.get('/users/:id/sessions', { schema: { params: IdParams, querystring: HistoryQuery } }, async req => {
+    const me = requireUser(req);
+    const { id } = req.params as Static<typeof IdParams>;
+    const { before, limit = 30 } = req.query as Static<typeof HistoryQuery>;
+    return tx(db, me.id, async c => {
+      if (id !== me.id) await requireStaff(c);
+      await loadProfile(c, id);
+      const rows = (await c.query(`select s.id, s.program_id, p.name as program_name, s.name, s.week_index, s.day_index,
+            s.started_at, s.finished_at, s.data
+          from workout_sessions s left join programs p on p.id = s.program_id
+          where s.user_id = $1 and s.deleted_at is null and ($2::timestamptz is null or s.started_at < $2)
+          order by s.started_at desc limit $3`, [id, before ?? null, limit + 1])).rows;
+      return { sessions: rows.slice(0, limit), more: rows.length > limit };
+    });
+  });
+
+  // Records per exercise (from set_logs), max tests, 1RM, workouts per week and the names of the user's own
+  // exercises (so 'my-…' ids can be shown)
+  app.get('/users/:id/insight', { schema: { params: IdParams } }, async req => {
+    const me = requireUser(req);
+    const { id } = req.params as Static<typeof IdParams>;
+    return tx(db, me.id, async c => {
+      if (id !== me.id) await requireStaff(c);
+      await loadProfile(c, id);
+      const records = (await c.query(`select l.exercise_id,
+            max(l.reps) filter (where coalesce(l.weight_kg, 0) = 0) as reps,
+            max(l.weight_kg) as kg,
+            max(case when l.weight_kg > 0 and l.reps > 0
+                     then case when l.reps = 1 then l.weight_kg else l.weight_kg * (1 + l.reps / 30.0) end end) as e1rm,
+            max(l.duration_s) as seconds,
+            count(*)::int as sets,
+            max(l.logged_at) as last_at
+          from set_logs l join workout_sessions s on s.id = l.session_id
+          where l.user_id = $1 and l.deleted_at is null and s.deleted_at is null
+          group by l.exercise_id order by max(l.logged_at) desc`, [id])).rows;
+      const tests = (await c.query(`select test_key, value, unit, tested_at from max_tests
+          where user_id = $1 and deleted_at is null order by tested_at`, [id])).rows;
+      const maxes = (await c.query(`select lift_key, one_rm_kg from training_maxes
+          where user_id = $1 and deleted_at is null and one_rm_kg > 0 order by lift_key`, [id])).rows;
+      const weeks = (await c.query(`select to_char(date_trunc('week', s.started_at at time zone 'Europe/Copenhagen'), 'YYYY-MM-DD') as week,
+            count(*)::int as workouts
+          from workout_sessions s
+          where s.user_id = $1 and s.deleted_at is null and s.started_at > now() - interval '12 weeks'
+          group by 1 order by 1`, [id])).rows;
+      const custom = (await c.query(`select exercise_id, data->>'n' as name from custom_exercises
+          where user_id = $1 and deleted_at is null`, [id])).rows;
+      return { records, tests, maxes, weeks, custom };
     });
   });
 

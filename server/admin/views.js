@@ -71,8 +71,9 @@ SUBMITS.createUser = async f => {
 // ---------------------------------------------------------------- one user
 VIEWS.user = async () => {
   const id = ROUTE[1];
-  const [{ profile: u, athlete, stats }, programs, all] = await Promise.all([
+  const [{ profile: u, athlete, stats }, programs, all, insight] = await Promise.all([
     API.get('/users/' + id), API.get('/users/' + id + '/programs'), API.isAdmin() ? API.get('/users') : Promise.resolve([]),
+    insightSection(id),
   ]);
   const admin = API.isAdmin(), trainers = all.filter(x => x.role === 'trainer');
   const a = athlete || { level: 0, tree_levels: {}, goals: '', notes: '' };
@@ -110,7 +111,7 @@ VIEWS.user = async () => {
       <td class="small muted" style="text-align:right">${dkDate(p.updated_at)}</td></tr>`).join('')}</table>`
       : '<p class="muted small">Ingen programmer endnu. Byg et ud fra brugerens profil.</p>'}
     <p class="xs dim">Programmer, du laver her, vises i brugerens app under deres programmer. Brugeren kan bruge dem, men ikke ændre dem.</p></div></div>`;
-  return h;
+  return h + insight;
 };
 ACTIONS.openProgram = el => go(`#/program/${el.dataset.id}?user=${el.dataset.user}`);
 SUBMITS.saveAthlete = async f => {
